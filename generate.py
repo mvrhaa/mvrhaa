@@ -281,6 +281,20 @@ def banner_svg(rows, x, y, cw, rh, t0):
     return "".join(parts)
 
 
+def with_saccades(seq):
+    out = []
+    for t0, st in seq:
+        if out and st[2] == 1.0 and out[-1][1][2] == 1.0:
+            prev = out[-1][1]
+            if math.hypot(st[0] - prev[0], st[1] - prev[1]) > 0.42:
+                mx = round((st[0] + prev[0]) * 10) / 20
+                my = round((st[1] + prev[1]) * 10) / 20
+                out.append((t0, (mx, my, 1.0)))
+                t0 += 0.04
+        out.append((t0, st))
+    return out
+
+
 LEFT_W, RIGHT_W, WIN_H, MARGIN, GAP, BAR, PAD = 350, 484, 330, 6, 14, 30, 14
 TFS, TCW, TLH = 12.2, 7.35, 17.4
 BANNER_CW, BANNER_ASPECT = 10.0, 1.93
@@ -401,7 +415,7 @@ def build() -> tuple[str, int]:
     frames = {}
 
     def spans(seq, total, which):
-        seq = sorted(seq)
+        seq = with_saccades(sorted(seq))
         for i, (t0, (gx, gy, k)) in enumerate(seq):
             t1 = seq[i + 1][0] if i + 1 < len(seq) else total
             frames.setdefault((gx, gy, k), {"i": [], "l": []})[which].append((t0, t1))
