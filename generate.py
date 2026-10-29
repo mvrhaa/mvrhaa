@@ -21,6 +21,8 @@ COL = {
     "user": "#f0a35e", "host": "#d9b27c", "path": "#8fb3d9", "sym": "#7d8590",
     "cursor": "#f0a35e",
 }
+BANNER_COLORS = ["#fcd59a", "#f6b46d", "#ec9550", "#d9743a", "#bf5a26", "#9a4519"]
+BANNER_SHADOW = "#4a2210"
 
 
 def esc(s: str) -> str:
@@ -67,11 +69,15 @@ def banner_svg(rows, x, y, t0):
     parts = []
     for i, row in enumerate(rows):
         yy = y + i * BLH
+        main, shadow = [], []
         for m in re.finditer("█+", row):
             bx, bw = x + m.start() * TCW, (m.end() - m.start()) * TCW
-            parts.append(f'<rect x="{bx:.1f}" y="{yy:.1f}" width="{bw:.1f}" height="{BLH:.1f}"/>')
-    return (f'<g class="on" style="animation-duration:{t0:.3f}s" shape-rendering="crispEdges" '
-            f'fill="{COL["cmd"]}">{"".join(parts)}</g>')
+            shadow.append(f'<rect x="{bx + 2:.1f}" y="{yy + 2:.1f}" width="{bw:.1f}" height="{BLH:.1f}"/>')
+            main.append(f'<rect x="{bx:.1f}" y="{yy:.1f}" width="{bw:.1f}" height="{BLH:.1f}"/>')
+        parts.append(f'<g class="on" style="animation-duration:{t0 + i * 0.04:.3f}s" shape-rendering="crispEdges">'
+                     f'<g fill="{BANNER_SHADOW}">{"".join(shadow)}</g>'
+                     f'<g fill="{BANNER_COLORS[i % len(BANNER_COLORS)]}">{"".join(main)}</g></g>')
+    return "".join(parts)
 
 
 LEFT_W, RIGHT_W, WIN_H, MARGIN, GAP, BAR, PAD = 350, 484, 330, 6, 14, 30, 14
@@ -125,6 +131,7 @@ def build() -> str:
         for segs, lh in outputs:
             if segs == "banner":
                 term.append(banner_svg(banner, tx, y + 4, delay))
+                delay += 0.04 * len(banner)
             else:
                 term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
                             + text_el(tx, y + lh * 0.74, segs, TCW) + "</g>")
