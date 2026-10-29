@@ -22,7 +22,7 @@ COL = {
     "bg": "#0c0d10", "bar": "#15171c", "sep": "#23272e", "border": "#2c3139",
     "title": "#7d8590", "text": "#d4cfc5", "dim": "#6b7079", "cmd": "#f2eee6",
     "user": "#f0a35e", "host": "#d9b27c", "path": "#8fb3d9", "sym": "#7d8590",
-    "cursor": "#f0a35e",
+    "cursor": "#f0a35e", "live": "#ff5f57",
 }
 BANNER_COLORS = ["#fcd59a", "#f6b46d", "#ec9550", "#d9743a", "#bf5a26", "#9a4519"]
 BANNER_SHADOW = "#4a2210"
@@ -264,6 +264,7 @@ def banner_svg(rows, x, y, cw, rh, t0):
 LEFT_W, RIGHT_W, WIN_H, MARGIN, GAP, BAR, PAD = 350, 484, 330, 6, 14, 30, 14
 TFS, TCW, TLH = 12.2, 7.35, 17.4
 BANNER_CW, BANNER_ASPECT = 10.0, 1.93
+LFS, LCW = 11, 6.6
 EYE_TOP = BAR + 30
 
 
@@ -332,22 +333,27 @@ def build() -> str:
                   f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>')
 
     ex, ey = lx + (LEFT_W - EW) / 2, ly + EYE_TOP
+    left = [text_el(lx + PAD, ly + BAR + 24, prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)]
     eyes = [eye_svg(render_eye(0, 0, 1.0), ex, ey)]
+    status_y = ey + EH + 16
+    status = [text_el(lx + PAD, status_y, [("●", "lv")], LCW),
+              text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs"), ("watching you", "co")], LCW)]
 
     body = [
         window(rx, ry, RIGHT_W, WIN_H, f"{HANDLE}@github: ~ — zsh — 80×24"),
         f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
         window_border(rx, ry, RIGHT_W, WIN_H),
         window(lx, ly, LEFT_W, WIN_H, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
-        f'<g class="e">{"".join(eyes)}</g>',
+        f'<g class="e">{"".join(eyes)}</g><g class="l">{"".join(left)}{"".join(status)}</g>',
         window_border(lx, ly, LEFT_W, WIN_H),
     ]
 
     classes = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
         | {"hl": SHINE, "vn": VEIN, "lu": LID_UP, "ll": LID_LO, "cu": COL["user"], "cs": COL["sym"],
-           "ch": COL["host"], "cp": COL["path"], "cc": COL["cmd"], "cm": COL["dim"], "cn": COL["cmd"]}
+           "ch": COL["host"], "cp": COL["path"], "cc": COL["cmd"], "cm": COL["dim"], "co": COL["text"],
+           "cn": COL["cmd"], "lv": COL["live"]}
     style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
-             f".e text{{font-size:{EFS}px}}.t text{{font-size:{TFS}px}}"
+             f".e text{{font-size:{EFS}px}}.t text{{font-size:{TFS}px}}.l text{{font-size:{LFS}px}}"
              f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}"
              ".cn{font-weight:700}"
              + "".join(f".{k}{{fill:{v}}}" for k, v in classes.items())
@@ -355,7 +361,7 @@ def build() -> str:
              "@keyframes on{from{opacity:0}to{opacity:1}}"
              ".cw{opacity:0;animation-name:cw;animation-timing-function:step-end;animation-fill-mode:both}"
              "@keyframes cw{from{opacity:1}to{opacity:0}}"
-             ".cur{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}"
+             ".cur,.lv{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}"
              + "".join(css))
     clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
             f'height="{WIN_H - BAR - 1}" rx="10"/></clipPath>')
