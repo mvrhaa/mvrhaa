@@ -37,6 +37,7 @@ X0, Y0 = EW / 2, EH / 2 + (HU - HL) / 2
 R, IRIS_R, PUPIL = 168.0, 70.0, 0.40
 TH_I = math.asin(IRIS_R / R)
 SCLERA_RAMP = ".,:;~=+*"
+IRIS_SOFT = ".:;'`"
 IRIS_DENSE = "0OQ8B#%&@"
 
 
@@ -47,6 +48,10 @@ def _norm(v):
 
 def _dot(a, b):
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 
 
 def _smooth(a, b, x):
@@ -75,9 +80,17 @@ def _lids(x, k):
     return meet + (up - meet) * k, meet + (lo - meet) * k ** 0.55
 
 
+def _radial_char(dx, dy):
+    a = math.atan2(dy, dx) % math.pi
+    return "-\\|/-"[int((a + math.pi / 8) // (math.pi / 4))]
+
+
 def render_eye(gx: float, gy: float, k: float) -> dict:
     cells = {}
     g = _norm((gx, gy, 1.0))
+    e1 = _norm(_cross((0.0, 1.0, 0.0), g))
+    e2 = _cross(g, e1)
+    pcx, pcy = X0 + R * g[0], Y0 + R * g[1]
     for r in range(EYE_ROWS):
         py = (r + 0.5) * ECH
         for c in range(EYE_COLS):
@@ -97,9 +110,21 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
                 continue
             if rr < 1.0:
                 rad = (rr - PUPIL) / (1 - PUPIL)
-                v = 0.75 * (1 - 0.60 * _smooth(0.76, 1.0, rad))
+                phi = math.atan2(_dot(n, e2), _dot(n, e1))
+                fib = (0.5 + 0.30 * math.sin(phi * 17 + 1.8 * math.sin(phi * 5 + 0.4))
+                       + 0.18 * math.sin(phi * 43 + 2.2 * math.sin(phi * 3 + rad * 4))
+                       + 0.10 * math.sin(phi * 89 + rad * 11))
+                v = 0.40 + 0.42 * fib
+                v += 0.26 * math.exp(-((rad - 0.30) / 0.11) ** 2)
+                v *= 1 - 0.60 * _smooth(0.76, 1.0, rad)
+                v *= 0.55 + 0.45 * _smooth(0.0, 0.12, rad)
                 v = min(0.999, max(0.0, v * shade + jit * 0.08))
-                ch = IRIS_DENSE[int(_hash(r, c, 6) * len(IRIS_DENSE))]
+                if v < 0.24:
+                    ch = IRIS_SOFT[int(_hash(r, c, 5) * len(IRIS_SOFT))]
+                elif v > 0.58:
+                    ch = IRIS_DENSE[int(_hash(r, c, 6) * len(IRIS_DENSE))]
+                else:
+                    ch = _radial_char(px - pcx, py - pcy)
                 cells[(r, c)] = (ch, f"i{int(v * len(IRIS))}")
                 continue
             v = 0.74 * (0.30 + 0.70 * n[2] ** 0.65)
