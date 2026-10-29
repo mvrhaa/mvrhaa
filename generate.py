@@ -28,7 +28,7 @@ BANNER_COLORS = ["#fcd59a", "#f6b46d", "#ec9550", "#d9743a", "#bf5a26", "#9a4519
 BANNER_SHADOW = "#4a2210"
 SCLERA = ["#2a2723", "#423d37", "#5e584f", "#7e776b", "#a19a8c"]
 IRIS = ["#4a1c09", "#6e2d0f", "#9a4216", "#c4591f", "#e2762f", "#f39a4f", "#fcc683"]
-SHINE, VEIN = "#fff8ec", "#8f4636"
+SHINE, VEIN, LID_UP, LID_LO = "#fff8ec", "#8f4636", "#8a6440", "#5f4a36"
 
 EYE_COLS, EYE_ROWS = 64, 26
 ECW, ECH, EFS = 5.05, 8.6, 8.4
@@ -148,6 +148,39 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
             idx = int(v * (len(SCLERA_RAMP) - 1) + jit * 1.2)
             cells[(r, c)] = (SCLERA_RAMP[max(0, min(len(SCLERA_RAMP) - 1, idx))],
                              f"s{int(v * len(SCLERA))}")
+    for key, val in _lid_cells(k).items():
+        cells.setdefault(key, val)
+    return cells
+
+
+def _lid_cells(k: float) -> dict:
+    closed = k < 0.06
+    cells = {}
+    for which, cls in ((0, "lu"), (1, "ll")):
+        if closed and which == 1:
+            continue
+        rows = {}
+        for c in range(EYE_COLS):
+            x = (c + 0.5) * ECW
+            lid = _lids(x, k)
+            if lid is None:
+                continue
+            a, b = _lids(x - 0.5, k) or lid, _lids(x + 0.5, k) or lid
+            s = (b[which] - a[which]) * ECW / ECH
+            yv = lid[which] / ECH
+            r, f = int(yv), yv - int(yv)
+            if abs(s) > 0.75:
+                ch = "/" if s < 0 else "\\"
+            else:
+                ch = "'" if f < 0.3 else "-" if f < 0.55 else "." if f < 0.8 else "_"
+            cells.setdefault((r, c), (ch, cls))
+            pr = rows.get(c - 1)
+            rows[c] = r
+            if pr is not None and abs(pr - r) > 1:
+                outer = c - 1 if (c - 0.5) * ECW < X0 else c
+                fill = "/" if pr > r else "\\"
+                for rr in range(min(pr, r) + 1, max(pr, r)):
+                    cells.setdefault((rr, outer), (fill, cls))
     return cells
 
 
@@ -311,7 +344,7 @@ def build() -> str:
     ]
 
     classes = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
-        | {"hl": SHINE, "vn": VEIN, "cu": COL["user"], "cs": COL["sym"],
+        | {"hl": SHINE, "vn": VEIN, "lu": LID_UP, "ll": LID_LO, "cu": COL["user"], "cs": COL["sym"],
            "ch": COL["host"], "cp": COL["path"], "cc": COL["cmd"], "cm": COL["dim"], "cn": COL["cmd"]}
     style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
              f".e text{{font-size:{EFS}px}}.t text{{font-size:{TFS}px}}"
