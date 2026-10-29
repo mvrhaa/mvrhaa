@@ -289,7 +289,7 @@ def with_saccades(seq):
             if math.hypot(st[0] - prev[0], st[1] - prev[1]) > 0.42:
                 mx = round((st[0] + prev[0]) * 10) / 20
                 my = round((st[1] + prev[1]) * 10) / 20
-                out.append((t0, (mx, my, 1.0)))
+                out.append((t0, (mx, my, 1.0, st[3])))
                 t0 += 0.04
         out.append((t0, st))
     return out
@@ -391,34 +391,44 @@ def build() -> tuple[str, int]:
         gy = min(0.32, max(-0.22, gy))
         return round(gx * 20) / 20, round(gy * 20) / 20
 
-    def blink(t0, gx, gy):
-        return [(t0, (gx, gy, 0.45)), (t0 + 0.04, (gx, gy, 0.12)), (t0 + 0.08, (gx, gy, 0.0)),
-                (t0 + 0.17, (gx, gy, 0.12)), (t0 + 0.21, (gx, gy, 0.45)), (t0 + 0.25, (gx, gy, 1.0))]
+    def blink(t0, gx, gy, after):
+        return [(t0, (gx, gy, 0.45, "blink")), (t0 + 0.04, (gx, gy, 0.12, "blink")),
+                (t0 + 0.08, (gx, gy, 0.0, "blink")), (t0 + 0.17, (gx, gy, 0.12, "blink")),
+                (t0 + 0.21, (gx, gy, 0.45, "blink")), (t0 + 0.25, (gx, gy, 1.0, after))]
 
-    intro = [(0.0, (0, 0, 0.0)), (0.35, (0, 0, 0.12)), (0.42, (0, 0, 0.45)), (0.5, (0, 0, 1.0))]
+    intro = [(0.0, (0, 0, 0.0, "waking up")), (0.35, (0, 0, 0.12, "waking up")),
+             (0.42, (0, 0, 0.45, "waking up")), (0.5, (0, 0, 1.0, "watching you"))]
     for tl, px, py in looks:
-        intro.append((tl, (*gaze(px, py), 1.0)))
-    intro.append((t_final + 1.0, (0, 0, 1.0)))
-    intro += blink(t_final + 1.7, 0, 0)
+        intro.append((tl, (*gaze(px, py), 1.0, "reading the terminal")))
+    intro.append((t_final + 1.0, (0, 0, 1.0, "watching you")))
+    intro += blink(t_final + 1.7, 0, 0, "watching you")
     t_intro = round(t_final + 2.6, 2)
 
     look_banner = gaze(*marks.get("banner", marks["name"]))
     look_name = gaze(*marks["name"])
-    loop = [(0.0, (0, 0, 1.0)), (1.8, (-0.45, 0.05, 1.0)), (2.9, (-0.35, -0.2, 1.0)), (3.7, (0, 0, 1.0))]
-    loop += blink(4.3, 0, 0)
-    loop += [(5.6, (*look_banner, 1.0)), (6.8, (*look_name, 1.0)), (7.8, (0, 0, 1.0)),
-             (8.8, (-0.25, 0.3, 1.0)), (9.7, (0, 0, 1.0))]
-    loop += blink(10.3, 0, 0) + blink(10.75, 0, 0)
-    loop += [(11.6, (0.3, -0.2, 1.0)), (12.5, (0, 0, 1.0))]
+    loop = [(0.0, (0, 0, 1.0, "watching you")),
+            (1.8, (-0.45, 0.05, 1.0, "looking around")),
+            (2.9, (-0.35, -0.2, 1.0, "looking around")),
+            (3.7, (0, 0, 1.0, "watching you"))]
+    loop += blink(4.3, 0, 0, "watching you")
+    loop += [(5.6, (*look_banner, 1.0, "reading the terminal")),
+             (6.8, (*look_name, 1.0, "reading the terminal")),
+             (7.8, (0, 0, 1.0, "watching you")),
+             (8.8, (-0.25, 0.3, 1.0, "looking around")),
+             (9.7, (0, 0, 1.0, "watching you"))]
+    loop += blink(10.3, 0, 0, "watching you") + blink(10.75, 0, 0, "watching you")
+    loop += [(11.6, (0.3, -0.2, 1.0, "looking around")),
+             (12.5, (0, 0, 1.0, "watching you"))]
     t_loop = 13.6
 
-    frames = {}
+    frames, labels = {}, {}
 
     def spans(seq, total, which):
         seq = with_saccades(sorted(seq))
-        for i, (t0, (gx, gy, k)) in enumerate(seq):
+        for i, (t0, (gx, gy, k, label)) in enumerate(seq):
             t1 = seq[i + 1][0] if i + 1 < len(seq) else total
             frames.setdefault((gx, gy, k), {"i": [], "l": []})[which].append((t0, t1))
+            labels.setdefault(label, {"i": [], "l": []})[which].append((t0, t1))
 
     spans(intro, t_intro, "i")
     spans(loop, t_loop, "l")
@@ -433,7 +443,14 @@ def build() -> tuple[str, int]:
         eyes.append(f'<g class="fr f{n}{start}">{eye_svg(render_eye(gx, gy, k), ex, ey)}</g>')
     status_y = ey + EH + 16
     status = [text_el(lx + PAD, status_y, [("●", "lv")], LCW),
-              text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs"), ("watching you", "co")], LCW)]
+              text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs")], LCW)]
+    for n, (label, sp) in enumerate(labels.items()):
+        css.append(keyframes(f"si{n}", sp["i"], t_intro))
+        css.append(keyframes(f"sl{n}", sp["l"], t_loop))
+        css.append(f".lb{n}{{animation:sl{n} {t_loop}s step-end {phase}s infinite,si{n} {t_intro}s step-end}}")
+        start = " fs" if label == "watching you" else ""
+        status.append(f'<g class="fr lb{n}{start}">'
+                      + text_el(lx + PAD + 9 * LCW, status_y, [(label, "co")], LCW) + "</g>")
 
     body = [
         window(rx, ry, RIGHT_W, WIN_H, f"{HANDLE}@github: ~ — zsh — 80×24"),
