@@ -28,6 +28,7 @@ BANNER_COLORS = ["#fcd59a", "#f6b46d", "#ec9550", "#d9743a", "#bf5a26", "#9a4519
 BANNER_SHADOW = "#4a2210"
 SCLERA = ["#2a2723", "#423d37", "#5e584f", "#7e776b", "#a19a8c"]
 IRIS = ["#4a1c09", "#6e2d0f", "#9a4216", "#c4591f", "#e2762f", "#f39a4f", "#fcc683"]
+SHINE, VEIN = "#fff8ec", "#8f4636"
 
 EYE_COLS, EYE_ROWS = 64, 26
 ECW, ECH, EFS = 5.05, 8.6, 8.4
@@ -91,6 +92,8 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
     e1 = _norm(_cross((0.0, 1.0, 0.0), g))
     e2 = _cross(g, e1)
     pcx, pcy = X0 + R * g[0], Y0 + R * g[1]
+    shine = [(pcx - 0.34 * IRIS_R, pcy - 0.40 * IRIS_R, 0.19 * IRIS_R, 0.15 * IRIS_R),
+             (pcx + 0.40 * IRIS_R, pcy + 0.30 * IRIS_R, 0.08 * IRIS_R, 0.07 * IRIS_R)]
     for r in range(EYE_ROWS):
         py = (r + 0.5) * ECH
         for c in range(EYE_COLS):
@@ -106,6 +109,10 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
             n = (X, Y, math.sqrt(max(0.0, 1 - X * X - Y * Y)))
             rr = math.acos(max(-1.0, min(1.0, _dot(n, g)))) / TH_I
             jit = _hash(r, c) - 0.5
+            d = [((px - sx) / rx) ** 2 + ((py - sy) / ry) ** 2 for sx, sy, rx, ry in shine]
+            if rr < 1.05 and (d[0] < 1 or d[1] < 1):
+                cells[(r, c)] = ("@#%&"[int(_hash(c, r, 3) * 4) % 4] if d[0] < 0.55 else "*", "hl")
+                continue
             if rr < PUPIL:
                 continue
             if rr < 1.0:
@@ -118,7 +125,10 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
                 v += 0.26 * math.exp(-((rad - 0.30) / 0.11) ** 2)
                 v *= 1 - 0.60 * _smooth(0.76, 1.0, rad)
                 v *= 0.55 + 0.45 * _smooth(0.0, 0.12, rad)
-                v = min(0.999, max(0.0, v * shade + jit * 0.08))
+                v *= shade
+                if d[0] < 2.4:
+                    v += 0.16 * (2.4 - d[0]) / 2.4
+                v = min(0.999, max(0.0, v + jit * 0.08))
                 if v < 0.24:
                     ch = IRIS_SOFT[int(_hash(r, c, 5) * len(IRIS_SOFT))]
                 elif v > 0.58:
@@ -131,6 +141,10 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
             if rr < 1.2:
                 v *= 0.66 + 0.34 * _smooth(1.0, 1.2, rr)
             v = min(0.999, max(0.0, v * shade + jit * 0.05))
+            u = abs(px - X0) / A
+            if u > 0.6 and _hash(c, r, 7) < 0.05 * (u - 0.6) / 0.4:
+                cells[(r, c)] = ("~", "vn")
+                continue
             idx = int(v * (len(SCLERA_RAMP) - 1) + jit * 1.2)
             cells[(r, c)] = (SCLERA_RAMP[max(0, min(len(SCLERA_RAMP) - 1, idx))],
                              f"s{int(v * len(SCLERA))}")
@@ -297,7 +311,7 @@ def build() -> str:
     ]
 
     classes = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
-        | {"cu": COL["user"], "cs": COL["sym"],
+        | {"hl": SHINE, "vn": VEIN, "cu": COL["user"], "cs": COL["sym"],
            "ch": COL["host"], "cp": COL["path"], "cc": COL["cmd"], "cm": COL["dim"], "cn": COL["cmd"]}
     style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
              f".e text{{font-size:{EFS}px}}.t text{{font-size:{TFS}px}}"
