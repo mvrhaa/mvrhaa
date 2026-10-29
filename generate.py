@@ -61,6 +61,8 @@ def build() -> str:
     lx, ly = MARGIN, MARGIN
     rx, ry = MARGIN + LEFT_W + GAP, MARGIN
 
+    css = []
+
     tx, y = rx + PAD, ry + BAR + 10
     try:
         now = dt.datetime.now(ZoneInfo(TIMEZONE))
@@ -68,11 +70,48 @@ def build() -> str:
         now = dt.datetime.now()
     term = [text_el(tx, y + TLH * 0.74, [(f"Last login: {now:%a %b %d %H:%M:%S} on ttys001", "cm")], TCW)]
     y += TLH
+
+    name = [(f"{FIRST_NAME} {LAST_NAME}", "cn"), ("  —  ", "cm"), ("hello, world", "cm")]
+    session = [
+        ("whoami", [(name, TLH)]),
+    ]
+    t = 0.75
+    for i, (cmd, outputs) in enumerate(session):
+        if i:
+            y += 7
+        p = prompt()
+        plen = sum(len(s) for s, _ in p)
+        t_type = t + (0.55 if i == 0 else 0.35)
+        typing = len(cmd) * 0.065
+        t_enter = t_type + typing + 0.22
+        cx, move = tx + plen * TCW, len(cmd) * TCW
+        css.append(f"@keyframes ty{i}{{0%{{transform:translateX(0)}}"
+                   f"{100 * t_type / (t_type + typing):.4g}%{{transform:translateX(0);"
+                   f"animation-timing-function:steps({len(cmd)},end)}}"
+                   f"100%{{transform:translateX({move:.1f}px)}}}}")
+        term.append(
+            f'<g class="on" style="animation-duration:{t:.2f}s">'
+            + text_el(tx, y + TLH * 0.74, p + [(cmd, "cc")], TCW)
+            + f'<g transform="translate({move:.1f},0)" style="animation:ty{i} {t_type + typing:.3f}s linear both">'
+            + f'<rect x="{cx:.1f}" y="{y:.1f}" width="{move + TCW + 1:.1f}" height="{TLH:.1f}" fill="{COL["bg"]}"/>'
+            + f'<g class="cw" style="animation-duration:{t_enter:.2f}s">'
+              f'<rect x="{cx:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>'
+            + "</g></g>")
+        y += TLH
+        delay = t_enter + 0.05
+        for segs, lh in outputs:
+            term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
+                        + text_el(tx, y + lh * 0.74, segs, TCW) + "</g>")
+            delay += 0.035
+            y += lh
+        t = delay + 0.5
+    y += 7
     p = prompt()
     plen = sum(len(s) for s, _ in p)
-    term.append(text_el(tx, y + TLH * 0.74, p, TCW)
+    term.append(f'<g class="on" style="animation-duration:{t:.2f}s">'
+                + text_el(tx, y + TLH * 0.74, p, TCW)
                 + f'<rect class="cur" x="{tx + plen * TCW:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" '
-                  f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/>')
+                  f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>')
 
     body = [
         window(rx, ry, RIGHT_W, WIN_H, f"{HANDLE}@github: ~ — zsh — 80×24"),
@@ -82,12 +121,19 @@ def build() -> str:
         window_border(lx, ly, LEFT_W, WIN_H),
     ]
 
-    classes = {"cu": COL["user"], "cs": COL["sym"], "ch": COL["host"], "cp": COL["path"], "cm": COL["dim"]}
+    classes = {"cu": COL["user"], "cs": COL["sym"], "ch": COL["host"], "cp": COL["path"],
+               "cc": COL["cmd"], "cm": COL["dim"], "cn": COL["cmd"]}
     style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
              f".t text{{font-size:{TFS}px}}"
              f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}"
+             ".cn{font-weight:700}"
              + "".join(f".{k}{{fill:{v}}}" for k, v in classes.items())
-             + ".cur{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}")
+             + ".on{animation-name:on;animation-timing-function:step-end;animation-fill-mode:both}"
+             "@keyframes on{from{opacity:0}to{opacity:1}}"
+             ".cw{opacity:0;animation-name:cw;animation-timing-function:step-end;animation-fill-mode:both}"
+             "@keyframes cw{from{opacity:1}to{opacity:0}}"
+             ".cur{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}"
+             + "".join(css))
     clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
             f'height="{WIN_H - BAR - 1}" rx="10"/></clipPath>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
