@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import html
 import pathlib
 import re
+import sys
 from zoneinfo import ZoneInfo
 
 FIRST_NAME = "Ruslan"
@@ -56,24 +58,27 @@ def prompt(path="~"):
     return [(HANDLE, "cu"), ("@", "cs"), ("github", "ch"), (" ", None), (path, "cp"), (" % ", "cs")]
 
 
+@functools.cache
 def banner_rows():
     try:
         import pyfiglet
     except ImportError:
+        print("pyfiglet is not installed, so the block-letter banner is left out "
+              "(pip install pyfiglet)", file=sys.stderr)
         return []
     rows = pyfiglet.figlet_format(BANNER, font="ansi_shadow", width=200).split("\n")
     return [re.sub(r"[^█]", " ", row).rstrip() for row in rows if "█" in row]
 
 
-def banner_svg(rows, x, y, t0):
+def banner_svg(rows, x, y, cw, rh, t0):
     parts = []
     for i, row in enumerate(rows):
-        yy = y + i * BLH
+        yy = y + i * rh
         main, shadow = [], []
         for m in re.finditer("█+", row):
-            bx, bw = x + m.start() * TCW, (m.end() - m.start()) * TCW
-            shadow.append(f'<rect x="{bx + 2:.1f}" y="{yy + 2:.1f}" width="{bw:.1f}" height="{BLH:.1f}"/>')
-            main.append(f'<rect x="{bx:.1f}" y="{yy:.1f}" width="{bw:.1f}" height="{BLH:.1f}"/>')
+            bx, bw = x + m.start() * cw, (m.end() - m.start()) * cw
+            shadow.append(f'<rect x="{bx + 2:.1f}" y="{yy + 2:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
+            main.append(f'<rect x="{bx:.1f}" y="{yy:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
         parts.append(f'<g class="on" style="animation-duration:{t0 + i * 0.04:.3f}s" shape-rendering="crispEdges">'
                      f'<g fill="{BANNER_SHADOW}">{"".join(shadow)}</g>'
                      f'<g fill="{BANNER_COLORS[i % len(BANNER_COLORS)]}">{"".join(main)}</g></g>')
@@ -81,7 +86,8 @@ def banner_svg(rows, x, y, t0):
 
 
 LEFT_W, RIGHT_W, WIN_H, MARGIN, GAP, BAR, PAD = 350, 484, 330, 6, 14, 30, 14
-TFS, TCW, TLH, BLH = 12.2, 7.35, 17.4, 14.2
+TFS, TCW, TLH = 12.2, 7.35, 17.4
+BANNER_CW, BANNER_ASPECT = 10.0, 1.93
 
 
 def build() -> str:
@@ -100,9 +106,11 @@ def build() -> str:
     y += TLH
 
     banner = banner_rows()
+    bcw = min(BANNER_CW, (RIGHT_W - 2 * PAD) / max([1] + [len(row) for row in banner]))
+    brh = bcw * BANNER_ASPECT
     name = [(f"{FIRST_NAME} {LAST_NAME}", "cn"), ("  —  ", "cm"), ("hello, world", "cm")]
     session = [
-        ("whoami", ([("banner", len(banner) * BLH + 10)] if banner else []) + [(name, TLH)]),
+        ("whoami", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH)]),
     ]
     t = 0.75
     for i, (cmd, outputs) in enumerate(session):
@@ -130,7 +138,7 @@ def build() -> str:
         delay = t_enter + 0.05
         for segs, lh in outputs:
             if segs == "banner":
-                term.append(banner_svg(banner, tx, y + 4, delay))
+                term.append(banner_svg(banner, tx, y + 4, bcw, brh, delay))
                 delay += 0.04 * len(banner)
             else:
                 term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
