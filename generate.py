@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import datetime as dt
 import html
 import pathlib
+from zoneinfo import ZoneInfo
 
 FIRST_NAME = "Ruslan"
 LAST_NAME = "Murha"
 HANDLE = "mvrha"
+TIMEZONE = "Europe/Warsaw"
 OUT_DIR = pathlib.Path(__file__).resolve().parent / "assets"
 
 FONT = ("ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,"
@@ -20,6 +23,13 @@ COL = {
 
 def esc(s: str) -> str:
     return html.escape(s, quote=False)
+
+
+def text_el(x, y, segs, cw, attrs=""):
+    n = sum(len(t) for t, _ in segs)
+    body = "".join(f'<tspan class="{c}">{esc(t)}</tspan>' if c else esc(t) for t, c in segs)
+    return (f'<text x="{x:.1f}" y="{y:.1f}" textLength="{n * cw:.1f}" '
+            f'lengthAdjust="spacingAndGlyphs"{attrs}>{body}</text>')
 
 
 def window(x, y, w, h, title):
@@ -38,7 +48,12 @@ def window_border(x, y, w, h):
             f'fill="none" stroke="{COL["border"]}"/>')
 
 
+def prompt(path="~"):
+    return [(HANDLE, "cu"), ("@", "cs"), ("github", "ch"), (" ", None), (path, "cp"), (" % ", "cs")]
+
+
 LEFT_W, RIGHT_W, WIN_H, MARGIN, GAP, BAR, PAD = 350, 484, 330, 6, 14, 30, 14
+TFS, TCW, TLH = 12.2, 7.35, 17.4
 
 
 def build() -> str:
@@ -46,18 +61,38 @@ def build() -> str:
     lx, ly = MARGIN, MARGIN
     rx, ry = MARGIN + LEFT_W + GAP, MARGIN
 
+    tx, y = rx + PAD, ry + BAR + 10
+    try:
+        now = dt.datetime.now(ZoneInfo(TIMEZONE))
+    except Exception:
+        now = dt.datetime.now()
+    term = [text_el(tx, y + TLH * 0.74, [(f"Last login: {now:%a %b %d %H:%M:%S} on ttys001", "cm")], TCW)]
+    y += TLH
+    p = prompt()
+    plen = sum(len(s) for s, _ in p)
+    term.append(text_el(tx, y + TLH * 0.74, p, TCW)
+                + f'<rect class="cur" x="{tx + plen * TCW:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" '
+                  f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/>')
+
     body = [
         window(rx, ry, RIGHT_W, WIN_H, f"{HANDLE}@github: ~ — zsh — 80×24"),
+        f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
         window_border(rx, ry, RIGHT_W, WIN_H),
         window(lx, ly, LEFT_W, WIN_H, "eye — ascii"),
         window_border(lx, ly, LEFT_W, WIN_H),
     ]
 
+    classes = {"cu": COL["user"], "cs": COL["sym"], "ch": COL["host"], "cp": COL["path"], "cm": COL["dim"]}
     style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
-             f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}")
+             f".t text{{font-size:{TFS}px}}"
+             f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}"
+             + "".join(f".{k}{{fill:{v}}}" for k, v in classes.items())
+             + ".cur{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}")
+    clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
+            f'height="{WIN_H - BAR - 1}" rx="10"/></clipPath>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
             f'xml:space="preserve" role="img" aria-label="{esc(FIRST_NAME)} {esc(LAST_NAME)} — terminal">'
-            f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title><style>{style}</style>'
+            f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title><defs>{clip}</defs><style>{style}</style>'
             + "".join(body) + "</svg>")
 
 
