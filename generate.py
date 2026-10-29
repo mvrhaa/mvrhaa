@@ -311,6 +311,7 @@ def build() -> tuple[str, int]:
         ("whoami", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH)]),
     ]
     looks = []
+    marks = {}
     t = 0.75
     for i, (cmd, outputs) in enumerate(session):
         if i:
@@ -341,9 +342,12 @@ def build() -> tuple[str, int]:
             if segs == "banner":
                 term.append(banner_svg(banner, tx, y + 4, bcw, brh, delay))
                 w = max(len(row) for row in banner) * bcw
+                marks["banner"] = (tx + w / 2, y + lh / 2)
                 delay += 0.04 * len(banner)
             else:
                 w = sum(len(s) for s, _ in segs) * TCW
+                if segs is name:
+                    marks["name"] = (tx + w / 2, y + lh / 2)
                 term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
                             + text_el(tx, y + lh * 0.74, segs, TCW) + "</g>")
                 delay += 0.035
@@ -373,22 +377,44 @@ def build() -> tuple[str, int]:
         gy = min(0.32, max(-0.22, gy))
         return round(gx * 20) / 20, round(gy * 20) / 20
 
+    def blink(t0, gx, gy):
+        return [(t0, (gx, gy, 0.45)), (t0 + 0.04, (gx, gy, 0.12)), (t0 + 0.08, (gx, gy, 0.0)),
+                (t0 + 0.17, (gx, gy, 0.12)), (t0 + 0.21, (gx, gy, 0.45)), (t0 + 0.25, (gx, gy, 1.0))]
+
     intro = [(0.0, (0, 0, 0.0)), (0.35, (0, 0, 0.12)), (0.42, (0, 0, 0.45)), (0.5, (0, 0, 1.0))]
     for tl, px, py in looks:
         intro.append((tl, (*gaze(px, py), 1.0)))
     intro.append((t_final + 1.0, (0, 0, 1.0)))
-    t_intro = round(t_final + 1.7, 2)
+    intro += blink(t_final + 1.7, 0, 0)
+    t_intro = round(t_final + 2.6, 2)
+
+    look_banner = gaze(*marks.get("banner", marks["name"]))
+    look_name = gaze(*marks["name"])
+    loop = [(0.0, (0, 0, 1.0)), (1.8, (-0.45, 0.05, 1.0)), (2.9, (-0.35, -0.2, 1.0)), (3.7, (0, 0, 1.0))]
+    loop += blink(4.3, 0, 0)
+    loop += [(5.6, (*look_banner, 1.0)), (6.8, (*look_name, 1.0)), (7.8, (0, 0, 1.0)),
+             (8.8, (-0.25, 0.3, 1.0)), (9.7, (0, 0, 1.0))]
+    loop += blink(10.3, 0, 0) + blink(10.75, 0, 0)
+    loop += [(11.6, (0.3, -0.2, 1.0)), (12.5, (0, 0, 1.0))]
+    t_loop = 13.6
 
     frames = {}
-    intro = sorted(intro)
-    for i, (t0, (gx, gy, k)) in enumerate(intro):
-        t1 = intro[i + 1][0] if i + 1 < len(intro) else t_intro
-        frames.setdefault((gx, gy, k), []).append((t0, t1))
+
+    def spans(seq, total, which):
+        seq = sorted(seq)
+        for i, (t0, (gx, gy, k)) in enumerate(seq):
+            t1 = seq[i + 1][0] if i + 1 < len(seq) else total
+            frames.setdefault((gx, gy, k), {"i": [], "l": []})[which].append((t0, t1))
+
+    spans(intro, t_intro, "i")
+    spans(loop, t_loop, "l")
+    phase = -round((t_loop - t_intro % t_loop) % t_loop, 3)
 
     eyes = []
     for n, ((gx, gy, k), sp) in enumerate(frames.items()):
-        css.append(keyframes(f"i{n}", sp, t_intro))
-        css.append(f".f{n}{{animation:i{n} {t_intro}s step-end}}")
+        css.append(keyframes(f"i{n}", sp["i"], t_intro))
+        css.append(keyframes(f"l{n}", sp["l"], t_loop))
+        css.append(f".f{n}{{animation:l{n} {t_loop}s step-end {phase}s infinite,i{n} {t_intro}s step-end}}")
         start = " fs" if (gx, gy, k) == (0, 0, 1.0) else ""
         eyes.append(f'<g class="fr f{n}{start}">{eye_svg(render_eye(gx, gy, k), ex, ey)}</g>')
     status_y = ey + EH + 16
