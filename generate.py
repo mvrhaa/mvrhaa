@@ -302,10 +302,17 @@ LFS, LCW = 11, 6.6
 EYE_TOP = BAR + 30
 
 
-def build() -> tuple[str, int]:
-    W, H = MARGIN * 2 + LEFT_W + GAP + RIGHT_W, MARGIN * 2 + WIN_H
-    lx, ly = MARGIN, MARGIN
-    rx, ry = MARGIN + LEFT_W + GAP, MARGIN
+def build(wide: bool) -> tuple[str, int]:
+    if wide:
+        W, H = MARGIN * 2 + LEFT_W + GAP + RIGHT_W, MARGIN * 2 + WIN_H
+        lx, ly, lw = MARGIN, MARGIN, LEFT_W
+        rx, ry = MARGIN + LEFT_W + GAP, MARGIN
+        gaze_scale = (1000.0, 650.0)
+    else:
+        W, H = MARGIN * 2 + RIGHT_W, MARGIN * 2 + WIN_H * 2 + GAP
+        lx, ly, lw = MARGIN, MARGIN, RIGHT_W
+        rx, ry = MARGIN, MARGIN + WIN_H + GAP
+        gaze_scale = (700.0, 1300.0)
 
     css = []
 
@@ -379,12 +386,12 @@ def build() -> tuple[str, int]:
     looks.append((t, tx + plen * TCW, y + TLH / 2))
     t_final = t
 
-    ex, ey = lx + (LEFT_W - EW) / 2, ly + EYE_TOP
+    ex, ey = lx + (lw - EW) / 2, ly + EYE_TOP
     ecx, ecy = ex + X0, ey + Y0
     left = [text_el(lx + PAD, ly + BAR + 24, prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)]
 
     def gaze(px, py):
-        gx, gy = (px - ecx) / 1000.0, (py - ecy) / 650.0
+        gx, gy = (px - ecx) / gaze_scale[0], (py - ecy) / gaze_scale[1]
         m = math.hypot(gx, gy)
         if m > 0.55:
             gx, gy = gx * 0.55 / m, gy * 0.55 / m
@@ -456,9 +463,9 @@ def build() -> tuple[str, int]:
         window(rx, ry, RIGHT_W, WIN_H, f"{HANDLE}@github: ~ — zsh — 80×24"),
         f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
         window_border(rx, ry, RIGHT_W, WIN_H),
-        window(lx, ly, LEFT_W, WIN_H, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
+        window(lx, ly, lw, WIN_H, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
         f'<g class="e">{"".join(eyes)}</g><g class="l">{"".join(left)}{"".join(status)}</g>',
-        window_border(lx, ly, LEFT_W, WIN_H),
+        window_border(lx, ly, lw, WIN_H),
     ]
 
     classes = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
@@ -487,6 +494,7 @@ def build() -> tuple[str, int]:
 
 if __name__ == "__main__":
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    svg, n_frames = build()
-    (OUT_DIR / "terminal.svg").write_text(svg, encoding="utf-8")
-    print(f"terminal.svg: {len(svg.encode()) / 1024:.0f} KB, {n_frames} eye frames")
+    for file, wide in (("terminal.svg", True), ("terminal-mobile.svg", False)):
+        svg, n_frames = build(wide)
+        (OUT_DIR / file).write_text(svg, encoding="utf-8")
+        print(f"{file}: {len(svg.encode()) / 1024:.0f} KB, {n_frames} eye frames")
