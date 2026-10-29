@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import functools
 import html
+import math
 import pathlib
 import re
 import sys
@@ -25,6 +26,90 @@ COL = {
 }
 BANNER_COLORS = ["#fcd59a", "#f6b46d", "#ec9550", "#d9743a", "#bf5a26", "#9a4519"]
 BANNER_SHADOW = "#4a2210"
+SCLERA = ["#2a2723", "#423d37", "#5e584f", "#7e776b", "#a19a8c"]
+IRIS = ["#4a1c09", "#6e2d0f", "#9a4216", "#c4591f", "#e2762f", "#f39a4f", "#fcc683"]
+
+EYE_COLS, EYE_ROWS = 64, 26
+ECW, ECH, EFS = 5.05, 8.6, 8.4
+EW, EH = EYE_COLS * ECW, EYE_ROWS * ECH
+A, HU, HL = 150.0, 100.0, 82.0
+X0, Y0 = EW / 2, EH / 2 + (HU - HL) / 2
+R, IRIS_R, PUPIL = 168.0, 70.0, 0.40
+TH_I = math.asin(IRIS_R / R)
+SCLERA_RAMP = ".,:;~=+*"
+IRIS_DENSE = "0OQ8B#%&@"
+
+
+def _norm(v):
+    m = math.sqrt(sum(x * x for x in v))
+    return tuple(x / m for x in v)
+
+
+def _dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _smooth(a, b, x):
+    t = min(1.0, max(0.0, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+
+
+def _hash(*vals):
+    h = 2166136261
+    for v in vals:
+        h = ((h ^ (int(v * 7919) & 0xFFFFFFFF)) * 16777619) & 0xFFFFFFFF
+    h ^= h >> 15
+    h = (h * 0x2C1B3C6D) & 0xFFFFFFFF
+    h ^= h >> 12
+    return h / 0xFFFFFFFF
+
+
+def _lids(x, k):
+    u = (x - X0) / A
+    if abs(u) >= 1:
+        return None
+    b = 1 - u * u
+    up = Y0 - HU * b ** 0.78 * (1 - 0.10 * u)
+    lo = Y0 + HL * b ** 0.95 * (1 + 0.05 * u)
+    meet = Y0 + 0.32 * HL * b ** 0.95
+    return meet + (up - meet) * k, meet + (lo - meet) * k ** 0.55
+
+
+def render_eye(gx: float, gy: float, k: float) -> dict:
+    cells = {}
+    g = _norm((gx, gy, 1.0))
+    for r in range(EYE_ROWS):
+        py = (r + 0.5) * ECH
+        for c in range(EYE_COLS):
+            px = (c + 0.5) * ECW
+            lid = _lids(px, k)
+            if lid is None or not (lid[0] < py - ECH / 2 and py + ECH / 2 < lid[1]):
+                continue
+            up, lo = lid
+            span = max(1e-6, lo - up)
+            shade = (0.45 + 0.55 * _smooth(0.0, 0.42, (py - up) / span)) \
+                * (0.80 + 0.20 * _smooth(0.0, 0.2, (lo - py) / span))
+            X, Y = (px - X0) / R, (py - Y0) / R
+            n = (X, Y, math.sqrt(max(0.0, 1 - X * X - Y * Y)))
+            rr = math.acos(max(-1.0, min(1.0, _dot(n, g)))) / TH_I
+            jit = _hash(r, c) - 0.5
+            if rr < PUPIL:
+                continue
+            if rr < 1.0:
+                rad = (rr - PUPIL) / (1 - PUPIL)
+                v = 0.75 * (1 - 0.60 * _smooth(0.76, 1.0, rad))
+                v = min(0.999, max(0.0, v * shade + jit * 0.08))
+                ch = IRIS_DENSE[int(_hash(r, c, 6) * len(IRIS_DENSE))]
+                cells[(r, c)] = (ch, f"i{int(v * len(IRIS))}")
+                continue
+            v = 0.74 * (0.30 + 0.70 * n[2] ** 0.65)
+            if rr < 1.2:
+                v *= 0.66 + 0.34 * _smooth(1.0, 1.2, rr)
+            v = min(0.999, max(0.0, v * shade + jit * 0.05))
+            idx = int(v * (len(SCLERA_RAMP) - 1) + jit * 1.2)
+            cells[(r, c)] = (SCLERA_RAMP[max(0, min(len(SCLERA_RAMP) - 1, idx))],
+                             f"s{int(v * len(SCLERA))}")
+    return cells
 
 
 def esc(s: str) -> str:
@@ -36,6 +121,25 @@ def text_el(x, y, segs, cw, attrs=""):
     body = "".join(f'<tspan class="{c}">{esc(t)}</tspan>' if c else esc(t) for t, c in segs)
     return (f'<text x="{x:.1f}" y="{y:.1f}" textLength="{n * cw:.1f}" '
             f'lengthAdjust="spacingAndGlyphs"{attrs}>{body}</text>')
+
+
+def eye_svg(cells, ox, oy):
+    out = []
+    for r in range(EYE_ROWS):
+        cols = sorted(c for (rr, c) in cells if rr == r)
+        if not cols:
+            continue
+        segs, cur, buf = [], None, ""
+        for c in range(cols[0], cols[-1] + 1):
+            ch, cls = cells.get((r, c), (" ", None))
+            if ch != " " and cls != cur:
+                if buf:
+                    segs.append((buf, cur))
+                buf, cur = "", cls
+            buf += ch
+        segs.append((buf, cur))
+        out.append(text_el(ox + cols[0] * ECW, oy + r * ECH + ECH * 0.8, segs, ECW))
+    return "".join(out)
 
 
 def window(x, y, w, h, title):
@@ -88,6 +192,7 @@ def banner_svg(rows, x, y, cw, rh, t0):
 LEFT_W, RIGHT_W, WIN_H, MARGIN, GAP, BAR, PAD = 350, 484, 330, 6, 14, 30, 14
 TFS, TCW, TLH = 12.2, 7.35, 17.4
 BANNER_CW, BANNER_ASPECT = 10.0, 1.93
+EYE_TOP = BAR + 30
 
 
 def build() -> str:
@@ -154,18 +259,23 @@ def build() -> str:
                 + f'<rect class="cur" x="{tx + plen * TCW:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" '
                   f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>')
 
+    ex, ey = lx + (LEFT_W - EW) / 2, ly + EYE_TOP
+    eyes = [eye_svg(render_eye(0, 0, 1.0), ex, ey)]
+
     body = [
         window(rx, ry, RIGHT_W, WIN_H, f"{HANDLE}@github: ~ — zsh — 80×24"),
         f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
         window_border(rx, ry, RIGHT_W, WIN_H),
-        window(lx, ly, LEFT_W, WIN_H, "eye — ascii"),
+        window(lx, ly, LEFT_W, WIN_H, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
+        f'<g class="e">{"".join(eyes)}</g>',
         window_border(lx, ly, LEFT_W, WIN_H),
     ]
 
-    classes = {"cu": COL["user"], "cs": COL["sym"], "ch": COL["host"], "cp": COL["path"],
-               "cc": COL["cmd"], "cm": COL["dim"], "cn": COL["cmd"]}
+    classes = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
+        | {"cu": COL["user"], "cs": COL["sym"],
+           "ch": COL["host"], "cp": COL["path"], "cc": COL["cmd"], "cm": COL["dim"], "cn": COL["cmd"]}
     style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
-             f".t text{{font-size:{TFS}px}}"
+             f".e text{{font-size:{EFS}px}}.t text{{font-size:{TFS}px}}"
              f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}"
              ".cn{font-weight:700}"
              + "".join(f".{k}{{fill:{v}}}" for k, v in classes.items())
