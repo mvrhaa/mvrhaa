@@ -230,6 +230,26 @@ def window_border(x, y, w, h):
             f'fill="none" stroke="{COL["border"]}"/>')
 
 
+def keyframes(name, spans, total):
+    merged = []
+    for s, e in sorted(spans):
+        if merged and s <= merged[-1][1] + 1e-9:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    pts = [(0.0, 0)]
+    for s, e in merged:
+        if s <= 1e-9:
+            pts[0] = (0.0, 1)
+        else:
+            pts.append((s, 1))
+        pts.append((min(e, total), 0))
+    if pts[-1][0] < total - 1e-9:
+        pts.append((total, pts[-1][1]))
+    body = "".join(f"{100 * t / total:.4g}%{{opacity:{v}}}" for t, v in pts)
+    return f"@keyframes {name}{{{body}}}"
+
+
 def prompt(path="~"):
     return [(HANDLE, "cu"), ("@", "cs"), ("github", "ch"), (" ", None), (path, "cp"), (" % ", "cs")]
 
@@ -268,7 +288,7 @@ LFS, LCW = 11, 6.6
 EYE_TOP = BAR + 30
 
 
-def build() -> str:
+def build() -> tuple[str, int]:
     W, H = MARGIN * 2 + LEFT_W + GAP + RIGHT_W, MARGIN * 2 + WIN_H
     lx, ly = MARGIN, MARGIN
     rx, ry = MARGIN + LEFT_W + GAP, MARGIN
@@ -290,6 +310,7 @@ def build() -> str:
     session = [
         ("whoami", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH)]),
     ]
+    looks = []
     t = 0.75
     for i, (cmd, outputs) in enumerate(session):
         if i:
@@ -312,17 +333,23 @@ def build() -> str:
             + f'<g class="cw" style="animation-duration:{t_enter:.2f}s">'
               f'<rect x="{cx:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>'
             + "</g></g>")
+        looks.append((t, cx + move / 2, y + TLH / 2))
         y += TLH
-        delay = t_enter + 0.05
+        t_out = t_enter + 0.05
+        block_top, width, delay = y, 0.0, t_out
         for segs, lh in outputs:
             if segs == "banner":
                 term.append(banner_svg(banner, tx, y + 4, bcw, brh, delay))
+                w = max(len(row) for row in banner) * bcw
                 delay += 0.04 * len(banner)
             else:
+                w = sum(len(s) for s, _ in segs) * TCW
                 term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
                             + text_el(tx, y + lh * 0.74, segs, TCW) + "</g>")
                 delay += 0.035
+            width = max(width, w)
             y += lh
+        looks.append((t_out, tx + width / 2, (block_top + y) / 2))
         t = delay + 0.5
     y += 7
     p = prompt()
@@ -331,10 +358,39 @@ def build() -> str:
                 + text_el(tx, y + TLH * 0.74, p, TCW)
                 + f'<rect class="cur" x="{tx + plen * TCW:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" '
                   f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>')
+    looks.append((t, tx + plen * TCW, y + TLH / 2))
+    t_final = t
 
     ex, ey = lx + (LEFT_W - EW) / 2, ly + EYE_TOP
+    ecx, ecy = ex + X0, ey + Y0
     left = [text_el(lx + PAD, ly + BAR + 24, prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)]
-    eyes = [eye_svg(render_eye(0, 0, 1.0), ex, ey)]
+
+    def gaze(px, py):
+        gx, gy = (px - ecx) / 1000.0, (py - ecy) / 650.0
+        m = math.hypot(gx, gy)
+        if m > 0.55:
+            gx, gy = gx * 0.55 / m, gy * 0.55 / m
+        gy = min(0.32, max(-0.22, gy))
+        return round(gx * 20) / 20, round(gy * 20) / 20
+
+    intro = [(0.0, (0, 0, 0.0)), (0.35, (0, 0, 0.12)), (0.42, (0, 0, 0.45)), (0.5, (0, 0, 1.0))]
+    for tl, px, py in looks:
+        intro.append((tl, (*gaze(px, py), 1.0)))
+    intro.append((t_final + 1.0, (0, 0, 1.0)))
+    t_intro = round(t_final + 1.7, 2)
+
+    frames = {}
+    intro = sorted(intro)
+    for i, (t0, (gx, gy, k)) in enumerate(intro):
+        t1 = intro[i + 1][0] if i + 1 < len(intro) else t_intro
+        frames.setdefault((gx, gy, k), []).append((t0, t1))
+
+    eyes = []
+    for n, ((gx, gy, k), sp) in enumerate(frames.items()):
+        css.append(keyframes(f"i{n}", sp, t_intro))
+        css.append(f".f{n}{{animation:i{n} {t_intro}s step-end}}")
+        start = " fs" if (gx, gy, k) == (0, 0, 1.0) else ""
+        eyes.append(f'<g class="fr f{n}{start}">{eye_svg(render_eye(gx, gy, k), ex, ey)}</g>')
     status_y = ey + EH + 16
     status = [text_el(lx + PAD, status_y, [("●", "lv")], LCW),
               text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs"), ("watching you", "co")], LCW)]
@@ -357,7 +413,8 @@ def build() -> str:
              f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}"
              ".cn{font-weight:700}"
              + "".join(f".{k}{{fill:{v}}}" for k, v in classes.items())
-             + ".on{animation-name:on;animation-timing-function:step-end;animation-fill-mode:both}"
+             + ".fr{opacity:0}.fs{opacity:1}"
+             ".on{animation-name:on;animation-timing-function:step-end;animation-fill-mode:both}"
              "@keyframes on{from{opacity:0}to{opacity:1}}"
              ".cw{opacity:0;animation-name:cw;animation-timing-function:step-end;animation-fill-mode:both}"
              "@keyframes cw{from{opacity:1}to{opacity:0}}"
@@ -368,11 +425,11 @@ def build() -> str:
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
             f'xml:space="preserve" role="img" aria-label="{esc(FIRST_NAME)} {esc(LAST_NAME)} — terminal">'
             f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title><defs>{clip}</defs><style>{style}</style>'
-            + "".join(body) + "</svg>")
+            + "".join(body) + "</svg>"), len(frames)
 
 
 if __name__ == "__main__":
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    svg = build()
+    svg, n_frames = build()
     (OUT_DIR / "terminal.svg").write_text(svg, encoding="utf-8")
-    print(f"terminal.svg: {len(svg.encode()) / 1024:.0f} KB")
+    print(f"terminal.svg: {len(svg.encode()) / 1024:.0f} KB, {n_frames} eye frames")
