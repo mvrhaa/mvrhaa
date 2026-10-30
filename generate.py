@@ -18,20 +18,93 @@ README = ROOT / "README.md"
 
 FONT = ("ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,"
         "'Liberation Mono','DejaVu Sans Mono',monospace")
-T = dict(
-    bg="#0d1117", bar="#161b22", sep="#21262d", border="#30363d",
-    lights=("#ff5f57", "#febc2e", "#28c840"),
-    title="#7d8590", text="#c9d1d9", dim="#6e7681", cmd="#f0f6fc", user="#58a6ff", host="#8b949e",
-    path="#c9d1d9", sym="#6e7681", cursor="#58a6ff", live="#58a6ff", accent="#58a6ff", accent2="#58a6ff",
-    banner=((0, "#f0f6fc"), (0.5, "#b1bac4"), (1, "#6e7681")), banner_shadow="#1b2a3e",
-    sclera=((0, "#8b929c"), (0.45, "#686f79"), (0.8, "#343a42"), (1, "#8b949e")),
-    iris=((0.38, "#0a1a2e"), (0.46, "#3474b3"), (0.6, "#93bde8"), (0.8, "#3474b3"), (1, "#1a3f6b")),
-    shine="#f2f8ff",
-    ghost=(("#06505c", "#00e5ff"), ("#5a124c", "#ff2bd6")),
-    red=("#820b1a", "#ff1b3a", "#ff2d5e"),
-    glitch=("#00e5ff", "#ff2bd6", "#58a6ff"),
-    glow="#1f6feb",
+BASE = dict(
+    bg="#0d1117", bar="#161b22", sep="#21262d", title="#8b949e", text="#c9d1d9", dim="#8b949e",
+    cmd="#f0f6fc", host="#8b949e", sym="#6e7681", shine="#ffffff", accent2="#ff7b72",
+    banner=((0, "#f0f6fc"), (0.5, "#c9d1d9"), (1, "#8b949e")),
+    red=("#490202", "#f85149", "#ffdcd7"),
+    mini=("#161b22", "#8b949e", "#30363d", "#c9d1d9"),
 )
+PALETTES = {
+    "lilac": dict(
+        BASE, lights=("#f778ba", "#bc8cff", "#79c0ff"),
+        user="#d2a8ff", path="#f778ba", cursor="#f778ba", live="#f778ba", accent="#bc8cff",
+        banner_shadow="#271052",
+        sclera=((0, "#c4bcd6"), (0.45, "#8d86a3"), (0.8, "#433d57"), (1, "#9a93ad")),
+        iris=((0.38, "#1a0b2e"), (0.46, "#f778ba"), (0.6, "#e2c5ff"), (0.8, "#bc8cff"), (1, "#8957e5")),
+        ghost=(("#3c1e70", "#bc8cff"), ("#5e103e", "#f778ba")), glitch=("#bc8cff", "#f778ba", "#79c0ff"),
+        glow="#8957e5", border_gradient=((0, "#6e40c9"), (0.5, "#8957e5"), (1, "#bf4b8a")),
+        mini=("#161b22", "#bc8cff", "#30363d", "#d2a8ff"),
+    ),
+    "contrib": dict(
+        BASE, lights=("#006d32", "#26a641", "#39d353"),
+        user="#3fb950", path="#7ee787", cursor="#39d353", live="#39d353", accent="#56d364",
+        banner_shadow="#04260f",
+        sclera=((0, "#b8c7bc"), (0.45, "#83958a"), (0.8, "#3b4a40"), (1, "#8b9a90")),
+        iris=((0.38, "#04260f"), (0.46, "#39d353"), (0.6, "#aff5b4"), (0.8, "#56d364"), (1, "#26a641")),
+        ghost=(("#033a16", "#39d353"), ("#0c2d6b", "#58a6ff")), glitch=("#39d353", "#58a6ff", "#7ee787"),
+        glow="#238636", border_gradient=((0, "#006d32"), (0.5, "#26a641"), (1, "#0e4429")),
+        mini=("#161b22", "#39d353", "#30363d", "#7ee787"),
+    ),
+    "primer": dict(
+        BASE, lights=("#f85149", "#d29922", "#3fb950"),
+        user="#58a6ff", path="#79c0ff", cursor="#58a6ff", live="#3fb950", accent="#58a6ff",
+        banner_shadow="#051d4d",
+        sclera=((0, "#b1bac4"), (0.45, "#8b949e"), (0.8, "#484f58"), (1, "#8b949e")),
+        iris=((0.38, "#051d4d"), (0.46, "#388bfd"), (0.6, "#a5d6ff"), (0.8, "#58a6ff"), (1, "#1f6feb")),
+        ghost=(("#0c2d6b", "#58a6ff"), ("#42062a", "#f778ba")), glitch=("#58a6ff", "#f778ba", "#79c0ff"),
+        glow="#1f6feb", border_gradient=((0, "#1f6feb"), (0.5, "#30363d"), (1, "#1f6feb")),
+        mini=("#161b22", "#58a6ff", "#30363d", "#79c0ff"),
+    ),
+    "graphite": dict(
+        BASE, lights=("#f85149", "#d29922", "#3fb950"),
+        user="#f0f6fc", path="#c9d1d9", cursor="#f0f6fc", live="#3fb950", accent="#f0f6fc",
+        accent2="#f85149", banner_shadow="#21262d",
+        sclera=((0, "#8b949e"), (0.45, "#6e7681"), (0.8, "#30363d"), (1, "#6e7681")),
+        iris=((0.38, "#161b22"), (0.46, "#c9d1d9"), (0.6, "#ffffff"), (0.8, "#d1d9e0"), (1, "#8b949e")),
+        ghost=(("#21262d", "#b1bac4"), ("#30363d", "#6e7681")), glitch=("#8b949e", "#f0f6fc"),
+        glow="#6e7681", border_gradient=((0, "#3d444d"), (1, "#3d444d")),
+    ),
+    "ember": dict(
+        BASE, lights=("#f85149", "#f0883e", "#e3b341"),
+        user="#ffa657", path="#e3b341", cursor="#f0883e", live="#f0883e", accent="#ffa657",
+        banner_shadow="#3d1300",
+        sclera=((0, "#cdc2b8"), (0.45, "#9a8e84"), (0.8, "#4d433b"), (1, "#a39488")),
+        iris=((0.38, "#3d1300"), (0.46, "#db6d28"), (0.6, "#ffdfb6"), (0.8, "#f0883e"), (1, "#9b4215")),
+        ghost=(("#5a1e02", "#ffa657"), ("#4b2900", "#e3b341")), glitch=("#ffa657", "#e3b341", "#ff7b72"),
+        glow="#db6d28", border_gradient=((0, "#bd561d"), (0.5, "#9e6a03"), (1, "#bd561d")),
+        mini=("#161b22", "#ffa657", "#30363d", "#ffa657"),
+    ),
+    "universe": dict(
+        BASE, lights=("#db61a2", "#8957e5", "#1f6feb"),
+        user="#bc8cff", path="#79c0ff", cursor="#79c0ff", live="#79c0ff", accent="#79c0ff",
+        accent2="#f778ba", banner_shadow="#271052",
+        sclera=((0, "#bcbfd6"), (0.45, "#8689a3"), (0.8, "#3d4057"), (1, "#9396ad")),
+        iris=((0.38, "#160b3a"), (0.46, "#db61a2"), (0.6, "#e2c5ff"), (0.8, "#8957e5"), (1, "#1f6feb")),
+        ghost=(("#3c1e70", "#bc8cff"), ("#0c2d6b", "#58a6ff")), glitch=("#bc8cff", "#58a6ff", "#f778ba"),
+        glow="#6e40c9", border_gradient=((0, "#8957e5"), (1, "#1f6feb")),
+        mini=("#161b22", "#79c0ff", "#30363d", "#79c0ff"),
+    ),
+    "neon": dict(
+        bg="#0b0714", bar="#130c22", sep="#24163d", lights=("#ff4fd8", "#b14dff", "#3df5ff"),
+        title="#9d8cc4", text="#e8e3ff", dim="#8f84b8", cmd="#ffffff", user="#ff4fd8", host="#9d8cc4",
+        path="#3df5ff", sym="#6b5f91", cursor="#3df5ff", live="#3df5ff", accent="#3df5ff", accent2="#ff4fd8",
+        banner=((0, "#ffffff"), (0.5, "#d2cfdc"), (1, "#8c8899")), banner_shadow="#251b36",
+        sclera=((0, "#c3b5f0"), (0.45, "#8a78c8"), (0.8, "#4a3a80"), (1, "#9d8cc4")),
+        iris=((0.38, "#1a0020"), (0.46, "#ff3df2"), (0.6, "#ffc2f8"), (0.8, "#b14dff"), (1, "#3df5ff")),
+        shine="#ffffff", ghost=(("#0a4a55", "#3df5ff"), ("#55104a", "#ff3df2")),
+        red=("#4a0d26", "#ff2b6b", "#ffd0e0"), glitch=("#3df5ff", "#ff3df2", "#b14dff"),
+        glow="#b14dff", border_gradient=((0, "#3df5ff"), (0.5, "#b14dff"), (1, "#ff4fd8")),
+        mini=("#130c22", "#3df5ff", "#24163d", "#3df5ff"),
+    ),
+}
+PALETTE = "graphite"
+T = PALETTES[PALETTE]
+MINIS = 6
+REPEATS = 3
+SEED = None
+SPAWN_GAPS = (0.35, 0.45, 0.4, 0.45, 0.4, 0.45, 0.4, 0.45)
+LOADS = ("1.12", "2.40", "3.87", "5.06", "6.71", "8.33", "9.98", "11.2")
 
 EYE_COLS, EYE_ROWS = 64, 26
 ECW, ECH, EFS = 5.05, 8.6, 8.4
@@ -332,12 +405,12 @@ class Doc:
                         f"animation-timing-function:steps({len(cmd)},end)}}"
                         f"100%{{transform:translateX({move:.1f}px)}}}}")
         markup = self.appear(t_show, text_el(x, y + TLH * 0.74, segs + [(cmd, "cc")], TCW)
+                             + f'<g class="cw" style="animation-duration:{t_enter:.2f}s">'
                              + f'<g transform="translate({move:.1f},0)" style="animation:{name} '
                                f'{t_type + typing:.3f}s linear both">'
                              + f'<rect x="{cx:.1f}" y="{y:.1f}" width="{move + TCW + 1:.1f}" height="{TLH:.1f}" '
                                f'fill="{T["bg"]}"/>'
-                             + f'<g class="cw" style="animation-duration:{t_enter:.2f}s">'
-                               f'<rect x="{cx:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" height="{TLH - 3:.1f}" '
+                             + f'<rect x="{cx:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" height="{TLH - 3:.1f}" '
                                f'class="cb"/></g></g>')
         return markup, t_enter, (cx + move / 2, y + TLH / 2)
 
@@ -371,7 +444,7 @@ class Doc:
     @staticmethod
     def border(x, y, w, h):
         return (f'<rect x="{x + 0.5}" y="{y + 0.5}" width="{w - 1}" height="{h - 1}" rx="9.5" '
-                f'fill="none" stroke="{T["border"]}"/>')
+                f'fill="none" stroke="url(#gW)"/>')
 
 
 class Eye:
@@ -483,22 +556,25 @@ class Eye:
         return f'<g class="E" transform="translate({num(self.ox, 2)} {num(self.oy, 2)}){scale}">'
 
 
-def glitch(doc, eye, bursts, idle, regions, rng):
+def glitch(doc, eye, bursts, quiet, regions, rng, period=None, repeats=1, spacing=0.0):
     back, eye_front, page_front, shakes = [], [], [], []
-    period, idle_bursts = idle
-    runs = [(b, None) for b in bursts] + [(b, period) for b in idle_bursts]
-    for (t0, count, step, strength), per in runs:
+    runs = [(b, False) for b in bursts] + [(b, True) for b in quiet]
+    for (t0, count, step, strength), calm in runs:
         shake = []
+        per = period if calm else None
+        light = calm and strength < 2
         for i in range(count):
             a, b = t0 + i * step, t0 + (i + 1) * step
+            spans = [(a + r * spacing, b + r * spacing) for r in range(repeats)] if calm else [(a, b)]
             n = eye.shown_frame((a + b) / 2)
             j = eye.grad[n]
             dx = rng.uniform(2.0, 3.0 + 1.4 * strength)
-            back.append(doc.layer([(a, b)], f'<use href="#e{n}" class="gC" x="{-dx:.1f}" opacity=".8"/>'
-                                            f'<use href="#e{n}" class="gM" x="{dx * 0.8:.1f}" opacity=".85"/>', per))
+            if not light:
+                back.append(doc.layer(spans, f'<use href="#e{n}" class="gC" x="{-dx:.1f}" opacity=".8"/>'
+                                             f'<use href="#e{n}" class="gM" x="{dx * 0.8:.1f}" opacity=".85"/>', per))
             front = f'<use href="#e{n}" class="rd"/>' if strength >= 4 else ""
             ex0, ew = regions["eye"]
-            for _ in range(1 if strength < 2.5 else 2):
+            for _ in range(0 if light else 1 if strength < 2.5 else 2):
                 sh = rng.uniform(5, 9 + 2.2 * strength)
                 sy = rng.uniform(EYE_TOP_ROW * ECH, EYE_BOTTOM_ROW * ECH - sh)
                 cid = doc.uid("c")
@@ -508,10 +584,11 @@ def glitch(doc, eye, bursts, idle, regions, rng):
                 front += (f'<rect x="{ex0:.1f}" y="{sy:.1f}" width="{ew:.1f}" height="{sh:.1f}" fill="{T["bg"]}"/>'
                           f'<g clip-path="url(#{cid})"><use href="#e{n}" x="{sdx:.1f}" '
                           f'style="--ir:url(#gI{j})"/></g>')
-            eye_front.append(doc.layer([(a, b)], front, per))
+            if front:
+                eye_front.append(doc.layer(spans, front, per))
             page = ""
             x, y, w, h, snap_first, snap_idle = regions["term"]
-            for _ in range(1 if strength < 3 else 2):
+            for _ in range(0 if calm else 1 if strength < 3 else 2):
                 sh = rng.uniform(5, 8 + 2.2 * strength)
                 sy = rng.uniform(y, y + h - sh)
                 cid = doc.uid("c")
@@ -519,22 +596,22 @@ def glitch(doc, eye, bursts, idle, regions, rng):
                                 f'height="{sh:.1f}"/></clipPath>')
                 sdx = rng.choice((-1, 1)) * rng.uniform(3, 4 + 3 * strength)
                 page += (f'<rect x="{x:.1f}" y="{sy:.1f}" width="{w:.1f}" height="{sh:.1f}" fill="{T["bg"]}"/>'
-                         f'<g clip-path="url(#{cid})"><use href="#{snap_idle if per else snap_first}" '
-                         f'x="{sdx:.1f}"/></g>')
-            for wx, wy, ww, wh in regions["windows"]:
+                         f'<g clip-path="url(#{cid})"><use href="#{snap_first}" x="{sdx:.1f}"/></g>')
+            windows = regions["windows"][:1] if calm else regions["windows"]
+            for wx, wy, ww, wh in windows:
                 for _ in range(1 + int(strength / 2.5)):
                     ly = rng.uniform(wy + BAR + 2, wy + wh - 3)
                     page += (f'<rect x="{wx}" y="{ly:.1f}" width="{ww}" height="1.2" '
                              f'fill="{rng.choice(T["glitch"])}" opacity=".65"/>')
             for _ in range(int(1 + strength / 1.5)):
-                wx, wy, ww, wh = rng.choice(regions["windows"])
+                wx, wy, ww, wh = rng.choice(windows)
                 noise = "".join(rng.choice("▓▒░█▚▞#@%$&?/\\|") for _ in range(rng.randint(3, 9)))
                 page += (f'<text x="{rng.uniform(wx + 4, wx + ww - 60):.1f}" '
                          f'y="{rng.uniform(wy + BAR + 12, wy + wh - 6):.1f}" '
                          f'font-size="{rng.choice((8.4, 12.2))}" fill="{rng.choice(T["glitch"] + (T["cmd"],))}">'
                          f'{esc(noise)}</text>')
-            page_front.append(doc.layer([(a, b)], page, per))
-            if per is None:
+            page_front.append(doc.layer(spans, page, per))
+            if not calm:
                 shake.append((a - t0, f"transform:translate({rng.uniform(-1, 1) * (0.6 + 0.5 * strength):.2f}px,"
                                       f"{rng.uniform(-0.4, 0.4) * strength:.2f}px)"))
         if shake:
@@ -553,7 +630,7 @@ def story(doc, tx, y, width, banner):
                ("ls ~/links", [(links, TLH, "links")]),
                ("./eye --stop", [(refuse, TLH, "refuse")])]
     t = 0.75
-    glitch_at = None
+    glitch_at, scene = None, None
     for i, (cmd, outputs) in enumerate(session):
         if i:
             y += 7
@@ -567,7 +644,10 @@ def story(doc, tx, y, width, banner):
             looks.append((t_type + 0.2, mx, my, 0.55, "suspicious"))
             looks.append((t_enter, mx, my, 0.55, "stop requested"))
             glitch_at = t_enter
-            t_out = t_enter + 1.5
+            scene = scene_times(t_enter) if MINIS else None
+            if scene:
+                looks += [(t, mx, my, 0.55, label) for t, label in scene_labels(scene)]
+            t_out = scene["kill"] + 0.4 if scene else t_enter + 1.5
         else:
             t_out = t_enter + 0.05
         y += TLH
@@ -599,7 +679,55 @@ def story(doc, tx, y, width, banner):
                              f'height="{TLH - 3:.1f}"/>'))
     looks.append((t, tx + PLEN * TCW, y + TLH / 2, 1.0, "reading the terminal"))
     return dict(term="".join(term), statics=statics, looks=looks, marks=marks, y=y + TLH, t_final=t,
-                glitch_at=glitch_at)
+                glitch_at=glitch_at, scene=scene)
+
+
+def minis(doc, scene, area, rng, period=None):
+    x0, y0, x1, y1 = area
+    fill, stroke, sep, title = T["mini"]
+    under, over = [], []
+    for k, ts in enumerate(scene["spawns"]):
+        w, h = rng.randint(9, 15) * ECW, rng.randint(3, 5) * ECH
+        x, y = rng.uniform(x0 + 2, x1 - w - 2), rng.uniform(y0 + 11, y1 - h)
+        spans = [(ts, scene["kill"])]
+        under.append(doc.layer(spans, f'<rect x="{x - 2:.1f}" y="{y - 11:.1f}" width="{w + 4:.1f}" '
+                                      f'height="{h + 13:.1f}" rx="2" fill="{fill}"/>', period))
+        live = steps([(ts, scene["kill"], SHOW)], HIDE, ts)
+        jitter = [(i * 0.08, f"transform:translate({rng.uniform(-3, 3):.1f}px,{rng.uniform(-1, 1):.1f}px)")
+                  for i in range(6)]
+        shake_for = scene["kill"] - scene["overload"]
+        if period:
+            rules = (doc.anim(live, period, ts, True),
+                     doc.anim(jitter + [(shake_for, "transform:none")], period, scene["overload"], True))
+        else:
+            rules = doc.anim(live, scene["kill"] - ts, ts), doc.anim(jitter, shake_for, scene["overload"])
+        over.append(f'<g class="h" style="animation:{rules[0]},{rules[1]}">'
+                    f'<rect x="{x - 2:.1f}" y="{y - 11:.1f}" width="{w + 4:.1f}" height="{h + 13:.1f}" rx="2" '
+                    f'fill="none" stroke="{stroke}" stroke-width=".8"/>'
+                    f'<path d="M{x - 2:.1f} {y - 1.5:.1f}h{w + 4:.1f}" stroke="{sep}"/>'
+                    f'<text x="{x + 1:.1f}" y="{y - 3.5:.1f}" font-size="7" fill="{title}">pts/{k + 1} · sync</text></g>')
+        noise = "".join(rng.choice("▓▒░█▚▞#@%$&?/\\|") for _ in range(rng.randint(4, 9)))
+        over.append(doc.layer([(ts, ts + 0.14)],
+                              f'<rect x="{x - 1:.1f}" y="{y - 10:.1f}" width="{w + 2:.1f}" height="{h + 10:.1f}" '
+                              f'fill="{fill}"/>'
+                              f'<text x="{x + 1:.1f}" y="{y - 3.5:.1f}" font-size="7" fill="{title}">pts/{k + 1}</text>'
+                              f'<text x="{x + rng.uniform(0, w / 2):.1f}" y="{y + rng.uniform(6, h):.1f}" '
+                              f'font-size="8.4" fill="{stroke}">{esc(noise)}</text>', period))
+    return "".join(under), "".join(over)
+
+
+def scene_times(start):
+    spawns, ts = [], start
+    for k in range(MINIS):
+        ts += SPAWN_GAPS[k]
+        spawns.append(ts)
+    overload = spawns[-1] + 0.5
+    return dict(spawns=spawns, overload=overload, kill=overload + 0.48)
+
+
+def scene_labels(scene):
+    out = [(ts, f"pts/{k + 1} spawned · load {LOADS[k]}") for k, ts in enumerate(scene["spawns"])]
+    return out + [(scene["overload"], "overload · load 12.40"), (scene["kill"], "killall · load 0.41")]
 
 
 def build(wide: bool) -> tuple[str, int]:
@@ -634,21 +762,49 @@ def build(wide: bool) -> tuple[str, int]:
                     f'<g id="tsB" class="t">{"".join(m for _, m in s["statics"])}</g>')
 
     windows = [(lx, ly, lw, eye_h), (rx, ry, right_w, term_h)]
-    at = s["glitch_at"]
-    bursts = [(at + 0.05, 3, 0.07, 2.4), (at + 0.5, 3, 0.07, 3.4), (at + 0.95, 6, 0.08, 5.0)]
+    at, scene = s["glitch_at"], s["scene"]
     period = 3 * eye.t_loop
     base = eye.t_intro + period
-    idle = (period, [(base + 5.55, 3, 0.07, 1.6), (base + eye.t_loop + 9.0, 3, 0.07, 2.8)])
+    if scene:
+        bursts = [(ts, 3, 0.07, 1.0 + 0.55 * k) for k, ts in enumerate(scene["spawns"])]
+        bursts.append((scene["overload"], 6, 0.08, 5.0))
+        repeat = scene_times(base + 1.0)
+        quiet = ([(ts, 2, 0.07, 1.0 + 0.4 * k) for k, ts in enumerate(repeat["spawns"])]
+                 + [(repeat["overload"], 4, 0.08, 4.5)])
+        timing = dict(repeats=REPEATS, spacing=period)
+    else:
+        bursts = [(at + 0.05, 3, 0.07, 2.4), (at + 0.5, 3, 0.07, 3.4), (at + 0.95, 6, 0.08, 5.0)]
+        quiet = [(base + 5.55, 3, 0.07, 1.6), (base + eye.t_loop + 9.0, 3, 0.07, 2.8)]
+        timing = dict(period=period)
     back, eye_front, page_front, shake = glitch(
-        doc, eye, bursts, idle,
+        doc, eye, bursts, quiet,
         {"eye": (-(lw - EW * scale) / 2 / scale, lw / scale),
          "term": (rx + 1, ry + BAR + 4, right_w - 2, term_h - BAR - 6, "tsA", "tsB"),
-         "windows": windows}, random.Random(12))
-
+         "windows": windows}, random.Random(12), **timing)
+    under, over = "", ""
     status_y = (oy + EH + 16) if wide else (oy + EYE_BOTTOM_ROW * ECH * scale + 18)
+    status_x = lx + PAD + 9 * LCW
+    overlays = ""
+    if scene:
+        rng = random.Random(SEED)
+        area = ((lx + 6 - ox) / scale, (ly + BAR + 32 - oy) / scale,
+                (lx + lw - 6 - ox) / scale, (status_y - 14 - oy) / scale)
+        parts = [minis(doc, scene, area, rng)]
+        parts += [minis(doc, {key: (v + i * period if isinstance(v, float) else [x + i * period for x in v])
+                              for key, v in repeat.items()}, area, rng)
+                  for i in range(REPEATS)]
+        under, over = "".join(p[0] for p in parts), "".join(p[1] for p in parts)
+        events = scene_labels(repeat)
+        for e, (t0, label) in enumerate(events):
+            t1 = events[e + 1][0] if e + 1 < len(events) else repeat["kill"] + 0.6
+            overlays += doc.layer([(t0 + i * period, t1 + i * period) for i in range(REPEATS)],
+                                  f'<rect x="{status_x - 2:.1f}" y="{status_y - LFS + 1:.1f}" '
+                                  f'width="{lx + lw - PAD - status_x:.1f}" height="{LFS + 2}" '
+                                  f'fill="{T["bg"]}"/>' + text_el(status_x, status_y, [(label, "co")], LCW))
+
     status = (text_el(lx + PAD, status_y, [("●", "lv")], LCW)
               + text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs")], LCW)
-              + eye.label_track(lx + PAD + 9 * LCW, status_y))
+              + eye.label_track(status_x, status_y) + overlays)
 
     doc.defs.append(f'<radialGradient id="gG"><stop offset="0" stop-color="{T["glow"]}" stop-opacity=".22"/>'
                     f'<stop offset=".55" stop-color="{T["glow"]}" stop-opacity=".07"/>'
@@ -661,9 +817,12 @@ def build(wide: bool) -> tuple[str, int]:
             glow,
             f'<g class="l">{left_cmd}</g>',
             f'<g class="t" clip-path="url(#clipT)">{s["term"]}</g>',
-            eye.open() + back + f'<g class="e">{eye.frames()}{eye_front}</g></g>',
+            eye.open() + under + back + f'<g class="e">{eye.frames()}{eye_front}</g>{over}</g>',
             f'<g class="l">{status}</g>',
             page_front]
+    x0, x1 = min(w[0] for w in windows), max(w[0] + w[2] for w in windows)
+    doc.defs.append(f'<linearGradient id="gW" gradientUnits="userSpaceOnUse" x1="{x0}" y1="0" x2="{x1}" y2="0">'
+                    + stops_of(T["border_gradient"]) + "</linearGradient>")
     body += [doc.border(rx, ry, right_w, term_h), doc.border(lx, ly, lw, eye_h)]
     doc.defs.append(f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{right_w}" '
                     f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
