@@ -19,16 +19,16 @@ OUT_DIR = pathlib.Path(__file__).resolve().parent / "assets"
 FONT = ("ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,"
         "'Liberation Mono','DejaVu Sans Mono',monospace")
 COL = {
-    "bg": "#0c0d10", "bar": "#15171c", "sep": "#23272e", "border": "#2c3139",
-    "title": "#7d8590", "text": "#d4cfc5", "dim": "#6b7079", "cmd": "#f2eee6",
-    "user": "#f0a35e", "host": "#d9b27c", "path": "#8fb3d9", "sym": "#7d8590",
-    "cursor": "#f0a35e", "live": "#ff5f57",
+    "bg": "#0d1117", "bar": "#161b22", "sep": "#21262d", "border": "#30363d",
+    "light": "#30363d", "title": "#7d8590", "text": "#c9d1d9", "dim": "#6e7681",
+    "cmd": "#f0f6fc", "user": "#58a6ff", "host": "#8b949e", "path": "#c9d1d9",
+    "sym": "#6e7681", "cursor": "#58a6ff", "live": "#58a6ff",
 }
-BANNER_COLORS = ["#fcd59a", "#f6b46d", "#ec9550", "#d9743a", "#bf5a26", "#9a4519"]
-BANNER_SHADOW = "#4a2210"
-SCLERA = ["#2a2723", "#423d37", "#5e584f", "#7e776b", "#a19a8c"]
-IRIS = ["#4a1c09", "#6e2d0f", "#9a4216", "#c4591f", "#e2762f", "#f39a4f", "#fcc683"]
-SHINE, VEIN, LID_UP, LID_LO = "#fff8ec", "#8f4636", "#8a6440", "#5f4a36"
+BANNER_COLORS = ["#f0f6fc", "#d1d9e0", "#b1bac4", "#8f99a4", "#6e7681"]
+BANNER_SHADOW = "#1b2a3e"
+SCLERA = ["#22262c", "#343a42", "#4b525b", "#686f79", "#8b929c"]
+IRIS = ["#0a1a2e", "#11294a", "#1a3f6b", "#24598f", "#3474b3", "#5793d1", "#93bde8"]
+SHINE, VEIN, LID_UP, LID_LO = "#f2f8ff", "#3e4651", "#8b949e", "#545b65"
 
 EYE_COLS, EYE_ROWS = 64, 26
 ECW, ECH, EFS = 5.05, 8.6, 8.4
@@ -216,8 +216,8 @@ def eye_svg(cells, ox, oy):
 
 def window(x, y, w, h, title):
     r = 10
-    lights = "".join(f'<circle cx="{x + cx}" cy="{y + BAR / 2}" r="5.5" fill="{c}"/>'
-                     for cx, c in ((18, "#ff5f57"), (36, "#febc2e"), (54, "#28c840")))
+    lights = "".join(f'<circle cx="{x + cx}" cy="{y + BAR / 2}" r="5.5" fill="{COL["light"]}"/>'
+                     for cx in (18, 36, 54))
     return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{COL["bg"]}"/>'
             f'<path d="M{x + r} {y}h{w - 2 * r}a{r} {r} 0 0 1 {r} {r}v{BAR - r}h{-w}v{r - BAR}'
             f'a{r} {r} 0 0 1 {r} {-r}z" fill="{COL["bar"]}"/>'
