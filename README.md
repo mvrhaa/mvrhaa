@@ -5,7 +5,9 @@
 
 <p>
   <code>~/links</code>&nbsp;&nbsp;
-  <a href="https://github.com/mvrhaa"><code>github</code></a>
+  <a href="https://github.com/mvrhaa"><code>github</code></a>&nbsp;&nbsp;
+  <a href="https://www.linkedin.com/in/ruslan-murha-08309638a"><code>linkedin</code></a>&nbsp;&nbsp;
+  <a href="https://t.me/mvrhaa"><code>telegram @mvrhaa</code></a>
 </p>
 
 <details>

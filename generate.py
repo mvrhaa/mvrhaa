@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime as dt
 import functools
 import html
 import math
@@ -8,13 +7,11 @@ import pathlib
 import random
 import re
 import sys
-from zoneinfo import ZoneInfo
 
 FIRST_NAME = "Ruslan"
 LAST_NAME = "Murha"
 HANDLE = "mvrha"
 BANNER = "MVRHAA"
-TIMEZONE = "Europe/Warsaw"
 ROOT = pathlib.Path(__file__).resolve().parent
 OUT_DIR = ROOT / "assets"
 README = ROOT / "README.md"
@@ -305,16 +302,19 @@ def banner_svg(rows, x, y, cw, rh, t0, animated=True, row_offset=0):
     return "".join(parts)
 
 
-def with_saccades(seq):
+def with_tweens(seq):
+    # a look slides through eased in-between gazes (on the 0.05 grid, so the way back reuses them)
     out = []
     for t0, st in seq:
         if out and st[2] == 1.0 and out[-1][1][2] == 1.0:
-            prev = out[-1][1]
-            if math.hypot(st[0] - prev[0], st[1] - prev[1]) > 0.42:
-                mx = round((st[0] + prev[0]) * 10) / 20
-                my = round((st[1] + prev[1]) * 10) / 20
-                out.append((t0, (mx, my, 1.0, st[3])))
-                t0 += 0.04
+            px, py = out[-1][1][:2]
+            count = min(3, round(math.hypot(st[0] - px, st[1] - py) / 0.15))
+            for i in range(1, count + 1):
+                e = _smooth(0.0, 1.0, i / (count + 1))
+                mid = (round((px + (st[0] - px) * e) * 20) / 20, round((py + (st[1] - py) * e) * 20) / 20)
+                if mid not in (out[-1][1][:2], st[:2]):
+                    out.append((t0, (*mid, 1.0, st[3])))
+                    t0 += 0.035
         out.append((t0, st))
     return out
 
@@ -342,22 +342,14 @@ def build(wide: bool) -> tuple[str, int]:
     css = []
 
     tx, y = rx + PAD, ry + BAR + 10
-    try:
-        today = dt.datetime.now(ZoneInfo(TIMEZONE)).date()
-    except Exception:
-        today = dt.date.today()
-    # the login time comes from the date, so every rebuild on the same day is byte-identical
-    now = dt.datetime.combine(today, dt.time()) + dt.timedelta(
-        seconds=random.Random(today.toordinal()).randrange(86400))
-    term = [text_el(tx, y + TLH * 0.74, [(f"Last login: {now:%a %b %d %H:%M:%S} on ttys001", "cm")], TCW)]
-    y += TLH
+    term = []
 
     banner = banner_rows()
     bcw = min(BANNER_CW, (RIGHT_W - 2 * PAD) / max([1] + [len(row) for row in banner]))
     brh = bcw * BANNER_ASPECT
     name = [(f"{FIRST_NAME} {LAST_NAME}", "cn"), ("  —  ", "cm"), ("hello, world", "cm")]
     session = [
-        ("whoami", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH)]),
+        ("cat me", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH)]),
     ]
     strip_output_parts = []
     command_y = y
@@ -438,13 +430,16 @@ def build(wide: bool) -> tuple[str, int]:
         gy = min(0.32, max(-0.22, gy))
         return round(gx * 20) / 20, round(gy * 20) / 20
 
-    def blink(t0, gx, gy, after):
-        return [(t0, (gx, gy, 0.45, "blink")), (t0 + 0.04, (gx, gy, 0.12, "blink")),
-                (t0 + 0.08, (gx, gy, 0.0, "blink")), (t0 + 0.17, (gx, gy, 0.12, "blink")),
-                (t0 + 0.21, (gx, gy, 0.45, "blink")), (t0 + 0.25, (gx, gy, 1.0, after))]
+    lids = (0.7, 0.4, 0.15, 0.0)
 
-    intro = [(0.0, (0, 0, 0.0, "waking up")), (0.35, (0, 0, 0.12, "waking up")),
-             (0.42, (0, 0, 0.45, "waking up")), (0.5, (0, 0, 1.0, "watching you"))]
+    def blink(t0, gx, gy, after):
+        closing = [(t0 + i * 0.03, (gx, gy, k, "blink")) for i, k in enumerate(lids)]
+        opening = [(t0 + 0.16 + i * 0.03, (gx, gy, k, "blink")) for i, k in enumerate(lids[-2::-1])]
+        return closing + opening + [(t0 + 0.25, (gx, gy, 1.0, after))]
+
+    intro = [(0.0, (0, 0, 0.0, "waking up"))]
+    intro += [(0.35 + i * 0.045, (0, 0, k, "waking up")) for i, k in enumerate(lids[-2::-1])]
+    intro.append((0.5, (0, 0, 1.0, "watching you")))
     for tl, px, py in looks:
         intro.append((tl, (*gaze(px, py), 1.0, "reading the terminal")))
     intro.append((t_final + 1.0, (0, 0, 1.0, "watching you")))
@@ -468,7 +463,7 @@ def build(wide: bool) -> tuple[str, int]:
              (12.5, (0, 0, 1.0, "watching you"))]
     t_loop = 13.6
 
-    seq_i, seq_l = with_saccades(sorted(intro)), with_saccades(sorted(loop))
+    seq_i, seq_l = with_tweens(sorted(intro)), with_tweens(sorted(loop))
     order = list(dict.fromkeys(tuple(state[:3]) for _, state in seq_i + seq_l))
     label_order = list(dict.fromkeys(state[3] for _, state in seq_i + seq_l))
     frame_ids = {state: n for n, state in enumerate(order)}
@@ -487,18 +482,31 @@ def build(wide: bool) -> tuple[str, int]:
     def shift_to(x):
         return f"transform:translate({num(-x)}px)" if x else "transform:none"
 
-    def track(spans, idle, attrs, inner):
-        start, stop = spans[0][0], spans[-1][1]
-        return f'<g{attrs} style="{animation(steps(spans, idle, start), stop - start, start)}">{inner}</g>'
+    # three eye loops per idle glitch, so every repeat meets the eye in the same pose
+    idle_period = 3 * t_loop
 
-    def layer(spans, inner, shifts=None):
+    def timing(changes, start, stop, period):
+        return animation(changes, period, start, True) if period else animation(changes, stop - start, start)
+
+    def track(spans, idle, attrs, inner, period=None):
+        start, stop = spans[0][0], spans[-1][1]
+        return f'<g{attrs} style="{timing(steps(spans, idle, start), start, stop, period)}">{inner}</g>'
+
+    def layer(spans, inner, shifts=None, period=None):
         # opacity, not visibility or display: it is not inherited, so flipping it never restyles the layer,
         # and a hidden layer is replayed from the paint cache instead of being repainted
         values = ["opacity:1" + (f";{shift_to(x)}" if x else "") for x in shifts or [0] * len(spans)]
-        return track([(a, b, v) for (a, b), v in zip(spans, values)], "opacity:0", ' class="h"', inner)
+        return track([(a, b, v) for (a, b), v in zip(spans, values)], "opacity:0", ' class="h"', inner, period)
+
+    def sprite(slots, spans, period=None):
+        # small sprites only: moving a group costs in proportion to everything inside it
+        keys = list(slots)
+        moves = sorted((a, b, shift_to(OFF * (i + 1))) for i, key in enumerate(keys) for a, b in spans[key])
+        start, stop = moves[0][0], moves[-1][1]
+        return (f'<g style="{timing(steps(moves, "transform:none", start), start, stop, period)}">'
+                + "".join(at(OFF * (i + 1), slots[key]) for i, key in enumerate(keys)) + "</g>")
 
     def looped(pos, key, inner):
-        # small sprites only: moving a group costs in proportion to everything inside it
         intro_steps = [(t0, shift_to(pos[key(state)])) for t0, state in seq_i]
         loop_steps = [(t0, shift_to(pos[key(state)])) for t0, state in seq_l]
         return (f'<g style="{animation(intro_steps, t_intro)}">'
@@ -522,19 +530,6 @@ def build(wide: bool) -> tuple[str, int]:
                 break
             state = event_state
         return frame_ids[tuple(state[:3])]
-
-    cuts = sorted({t for t, _ in seq_i} | {t_intro + k * t_loop + t for k in range(2) for t, _ in seq_l})
-
-    def segments(start, stop):
-        points = [start] + [t for t in cuts if start < t < stop] + [stop]
-        out = []
-        for a, b in zip(points, points[1:]):
-            n = shown_frame((a + b) / 2)
-            if out and out[-1][0] == n:
-                out[-1][2] = b
-            else:
-                out.append([n, a, b])
-        return out
 
     def crop_cells(cells, rect):
         row, col, height, width = rect
@@ -590,56 +585,69 @@ def build(wide: bool) -> tuple[str, int]:
     watching_at = kill_at + 0.9
     scene_end = watching_at + 0.2
 
-    mini_markup, extra_defs = [], []
+    loops_needed = math.ceil((scene_end + idle_period - t_intro) / t_loop) + 1
+    cuts = sorted({t for t, _ in seq_i} | {t_intro + k * t_loop + t for k in range(loops_needed) for t, _ in seq_l})
+
+    def segments(start, stop):
+        points = [start] + [t for t in cuts if start < t < stop] + [stop]
+        out = []
+        for a, b in zip(points, points[1:]):
+            n = shown_frame((a + b) / 2)
+            if out and out[-1][0] == n:
+                out[-1][2] = b
+            else:
+                out.append([n, a, b])
+        return out
+
+    extra_defs, minis = [], []
     for index, spawned_at, rect, _load in mini_specs:
         row, col, height, width = rect
         x, y0 = ex + col * ECW, ey + row * ECH
         box_x, box_y = x - 2, y0 - 11
         box_w, box_h = width * ECW + 4, height * ECH + 13
-        content_clip = f"mc{index}"
         extra_defs.append(
-            f'<clipPath id="{content_clip}"><rect x="{x:.2f}" y="{y0:.2f}" '
+            f'<clipPath id="mc{index}"><rect x="{x:.2f}" y="{y0:.2f}" '
             f'width="{width * ECW:.2f}" height="{height * ECH:.2f}"/></clipPath>')
-        initial_cells = brighten(glitch_cells(frame_cells[shown_frame(spawned_at)], rect))
-        snapshot_cells = brighten(crop_cells(frame_cells[shown_frame(spawned_at)], rect))
-        overload_cells = brighten(glitch_cells(frame_cells[shown_frame(overload_at)], rect))
         box = (f'<rect x="{box_x:.2f}" y="{box_y:.2f}" width="{box_w:.2f}" height="{box_h:.2f}" '
                f'rx="2" fill="#0a1220" stroke="#58a6ff" stroke-width="0.8"/>'
                f'<path d="M{box_x:.2f} {y0 - 1.5:.2f}h{box_w:.2f}" stroke="#1f3a5f"/>')
         titles = [f'<text x="{box_x + 3:.2f}" y="{y0 - 4:.2f}" font-size="7" fill="#58a6ff">'
                   f'pts/{index + 1}{suffix}</text>' for suffix in ("", " · sync")]
-        layers = {"g": eye_svg(initial_cells, ex, ey), "s": eye_svg(snapshot_cells, ex, ey)}
+        minis.append((spawned_at, rect, f"mc{index}", box, titles))
 
-        def mini_slot(stage, overloaded):
+    def mini_cells(spawned_at, rect, offset):
+        spawn_frame = frame_cells[shown_frame(spawned_at + offset)]
+        return (brighten(glitch_cells(spawn_frame, rect)), brighten(crop_cells(spawn_frame, rect)),
+                brighten(glitch_cells(frame_cells[shown_frame(overload_at + offset)], rect)))
+
+    def mini_window(spec, cells, offset, period=None):
+        spawned_at, rect, content_clip, box, titles = spec
+        glitched, snapshot, overloaded = cells
+        s, ov, kill = spawned_at + offset, overload_at + offset, kill_at + offset
+        layers = {"g": eye_svg(glitched, ex, ey), "s": eye_svg(snapshot, ex, ey)}
+
+        def mini_slot(stage, overload_now):
             if stage in ("g", "s"):
                 title, rows = titles[0], layers[stage]
             else:
                 title, rows = titles[1], eye_svg(brighten(crop_cells(frame_cells[stage], rect)), ex, ey)
-            if overloaded:
-                rows += eye_svg(overload_cells, ex, ey)
+            if overload_now:
+                rows += eye_svg(overloaded, ex, ey)
             return title + f'<g clip-path="url(#{content_clip})"><g class="e">{rows}</g></g>'
 
-        points = sorted(p for p in {spawned_at + 0.14, spawned_at + 0.5, overload_at, *cuts}
-                        if spawned_at < p < kill_at)
-        slots, spans = {}, []
-        for a, b in zip([spawned_at] + points, points + [kill_at]):
+        points = sorted(p for p in {s + 0.14, s + 0.5, ov, *cuts} if s < p < kill)
+        slots, spans = {}, {}
+        for a, b in zip([s] + points, points + [kill]):
             mid = (a + b) / 2
-            if mid < spawned_at + 0.14:
-                stage = "g"
-            elif mid < spawned_at + 0.5:
-                stage = "s"
-            else:
-                stage = shown_frame(mid)
-            shift = OFF * slots.setdefault((stage, mid > overload_at), len(slots) + 1)
-            if spans and spans[-1][2] == shift:
-                spans[-1] = (spans[-1][0], b, shift)
-            else:
-                spans.append((a, b, shift))
-        moves = steps([(a, b, shift_to(s)) for a, b, s in spans], "transform:none", spawned_at)
-        sprite = (f'<g style="{animation(moves, kill_at - spawned_at, spawned_at)}">'
-                  + "".join(at(OFF * k, mini_slot(*key)) for key, k in slots.items()) + "</g>")
-        mini_markup.append(track([(spawned_at, kill_at, "opacity:1")], "opacity:0",
-                                 ' class="h mini" font-weight="700"', box + sprite))
+            stage = "g" if mid < s + 0.14 else "s" if mid < s + 0.5 else shown_frame(mid)
+            key = (stage, mid > ov)
+            slots.setdefault(key, None)
+            spans.setdefault(key, []).append((a, b))
+        content = sprite({key: mini_slot(*key) for key in slots}, spans, period)
+        return track([(s, kill, "opacity:1")], "opacity:0", ' class="h mini" font-weight="700"',
+                     box + content, period)
+
+    mini_markup = [mini_window(spec, mini_cells(spec[0], spec[1], 0), 0) for spec in minis]
 
     status_y = ey + EH + 16
     status_x = lx + PAD + 9 * LCW
@@ -656,16 +664,20 @@ def build(wide: bool) -> tuple[str, int]:
     status_events.extend(((overload_at, kill_at, "overload · load 12.40"),
                           (kill_at, watching_at, "killall · load 0.41"),
                           (watching_at, scene_end, "watching you")))
-    status.append(layer(
-        [(s, e) for s, e, _ in status_events],
-        "".join(at(OFF * (k + 1),
-                   f'<rect x="{status_x - 2:.2f}" y="{status_y - LFS + 1:.2f}" '
-                   f'width="{lw - PAD - (status_x - lx):.2f}" height="{LFS + 2}" fill="{COL["bg"]}"/>'
-                   + text_el(status_x, status_y, [(label, "co")], LCW))
-                for k, (_, _, label) in enumerate(status_events)),
-        [OFF * (k + 1) for k in range(len(status_events))]))
+    status_slots = "".join(
+        at(OFF * (k + 1),
+           f'<rect x="{status_x - 2:.2f}" y="{status_y - LFS + 1:.2f}" '
+           f'width="{lw - PAD - (status_x - lx):.2f}" height="{LFS + 2}" fill="{COL["bg"]}"/>'
+           + text_el(status_x, status_y, [(label, "co")], LCW))
+        for k, (_, _, label) in enumerate(status_events))
 
-    command_text = text_el(tx, command_y + TLH * 0.74, p + [("whoami", "cc")], TCW)
+    def status_overlay(offset, period=None):
+        return layer([(s + offset, e + offset) for s, e, _ in status_events], status_slots,
+                     [OFF * (k + 1) for k in range(len(status_events))], period)
+
+    status.append(status_overlay(0))
+
+    command_text = text_el(tx, command_y + TLH * 0.74, p + [(session[0][0], "cc")], TCW)
     left_command = text_el(lx + PAD, ly + BAR + 24,
                            prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)
 
@@ -673,6 +685,7 @@ def build(wide: bool) -> tuple[str, int]:
         rows = [r for r in range(EYE_ROWS) if top - 0.4 * EFS < ey + (r + 0.8) * ECH < top + height + EFS]
         return f'<g class="e">{eye_svg(frame_cells[n], ex, ey, rows)}</g>'
 
+    windows = ((lx, ly, lw, eye_h), (rx, ry, RIGHT_W, term_h))
     glitch_chars_array = tuple(glitch_chars)
     glitch_colors = ("#58a6ff", "#7ee7f5", "#f0f6fc", "#1f6feb", "#ff2bd6", "#ff3b5c")
     glitch_events = []
@@ -680,21 +693,17 @@ def build(wide: bool) -> tuple[str, int]:
         intensity = 1 + 0.55 * index
         for subframe in range(3):
             start_at = spawned_at + subframe * 0.07
-            glitch_events.append((start_at, start_at + 0.07, intensity))
+            glitch_events.append((start_at, start_at + 0.07, intensity, index))
     for subframe in range(6):
         start_at = overload_at + subframe * 0.08
-        glitch_events.append((start_at, start_at + 0.08, 5.5))
+        glitch_events.append((start_at, start_at + 0.08, 5.5, len(spawn_times)))
 
-    ghost_spans, nick_spans, top_spans, top_slots = [], [], {}, {}
-    shake_events = []
+    nick_spans, shake_events, glitch_log = [], [], []
     strip_clip_index = 0
-    for event_index, (start_at, end_at, intensity) in enumerate(glitch_events):
-        eye_shift = 2 + 0.9 * intensity
+    for start_at, end_at, intensity, burst in glitch_events:
         nick_spans.append((start_at, end_at, 3 + 1.4 * intensity))
-
         overlays = []
-        for window_index, (win_x, win_y, win_w, win_h) in enumerate(
-                ((lx, ly, lw, eye_h), (rx, ry, RIGHT_W, term_h))):
+        for window_index, (win_x, win_y, win_w, win_h) in enumerate(windows):
             direction = 1 if window_index == 0 else -1
             # two bands per window at most: each band copies part of the window, which made the image heavy
             for _ in range(min(2, int(1 + intensity))):
@@ -715,7 +724,7 @@ def build(wide: bool) -> tuple[str, int]:
                     baseline = ly + BAR + 24
                     tail = (left_command.replace(f'x="{num(lx + PAD, 1)}"', f'x="{num(lx + PAD + dx, 1)}"', 1)
                             if strip_y <= baseline <= strip_y + strip_h else "")
-                    overlays.append((head, strip_y, strip_h, tail + "</g></g>"))
+                    overlays.append((0, (head, strip_y, strip_h, tail + "</g></g>")))
                     continue
                 # the shifted prompt line only matters where its glyphs reach the strip
                 baseline = command_y + TLH * 0.74
@@ -732,31 +741,24 @@ def build(wide: bool) -> tuple[str, int]:
                             if row_y <= strip_y + strip_h and row_y + height >= strip_y:
                                 content += banner_svg([row_text], tx + dx, row_y, bcw, height, 0,
                                                       animated=False, row_offset=row_index)
-                overlays.append(head + content + "</g></g>")
+                overlays.append((1, head + content + "</g></g>"))
 
             for _ in range(1 + int(intensity / 2)):
                 gy = rng.uniform(win_y + BAR + 2, win_y + win_h - 2)
                 color = rng.choice(("#00e5ff", "#ff2bd6"))
-                overlays.append(f'<rect x="{win_x}" y="{gy:.2f}" width="{win_w}" height="1.2" '
-                                f'fill="{color}" opacity="0.65"/>')
+                overlays.append((window_index, f'<rect x="{win_x}" y="{gy:.2f}" width="{win_w}" height="1.2" '
+                                               f'fill="{color}" opacity="0.65"/>'))
         for _ in range(int(2 + intensity)):
-            win_x, win_y, win_w, win_h = rng.choice(
-                ((lx, ly, lw, eye_h), (rx, ry, RIGHT_W, term_h)))
+            window_index = rng.choice((0, 1))
+            win_x, win_y, win_w, win_h = windows[window_index]
             text = "".join(rng.choice(glitch_chars_array) for _ in range(rng.randint(3, 10)))
             gx = rng.uniform(win_x + 2, win_x + win_w - 48)
             gy = rng.uniform(win_y + BAR + 10, win_y + win_h - 4)
             color = rng.choice(glitch_colors)
             size = rng.choice((8.4, 12.2))
-            overlays.append(f'<text x="{gx:.2f}" y="{gy:.2f}" font-size="{size}" '
-                            f'fill="{color}">{esc(text)}</text>')
-
-        for n, a, b in segments(start_at, end_at):
-            ghost_spans.append((a, b, n, eye_shift))
-            if (event_index, n) not in top_slots:
-                top_slots[(event_index, n)] = "".join(
-                    item if isinstance(item, str) else item[0] + strip_rows(n, item[1], item[2]) + item[3]
-                    for item in overlays)
-            top_spans.setdefault((event_index, n), []).append((a, b))
+            overlays.append((window_index, f'<text x="{gx:.2f}" y="{gy:.2f}" font-size="{size}" '
+                                           f'fill="{color}">{esc(text)}</text>'))
+        glitch_log.append((start_at, end_at, 2 + 0.9 * intensity, burst, overlays))
         shake_events.append((start_at, end_at, intensity,
                              rng.uniform(-(0.6 + 0.5 * intensity), 0.6 + 0.5 * intensity),
                              rng.uniform(-0.4 * intensity, 0.4 * intensity)))
@@ -772,31 +774,55 @@ def build(wide: bool) -> tuple[str, int]:
             dx, dy = 0.0, 0.0
         shake_points.append((time, f"transform:translate({dx:.2f}px,{dy:.2f}px)"))
 
-    ghost_frames, red_spans = {}, {}
-    for a, b, n, s in ghost_spans:
-        ghost_frames.setdefault(n, []).append((a, b, s))
-        red_spans.setdefault(n, []).append((a, b))
+    # the idle repeat glitches only the eye window and needs its own random mini glitches
+    idle_markup = [mini_window(spec, mini_cells(spec[0], spec[1], idle_period), idle_period, idle_period)
+                   for spec in minis]
+    mini_markup += idle_markup
+    status.append(status_overlay(idle_period, idle_period))
 
-    def ghost_copy(n, spans, look, sign):
+    def ghost_copy(n, spans, look, sign, period):
         shifts = {s for *_, s in spans}
         if len(shifts) == 1:
             return f'<use href="#e{n}" {look} x="{num(sign * shifts.pop())}"/>'
         start, stop = spans[0][0], spans[-1][1]
         moves = steps([(a, b, f"transform:translate({num(sign * s)}px)") for a, b, s in spans],
                       "transform:none", start)
-        return f'<use href="#e{n}" {look} style="{animation(moves, stop - start, start)}"/>'
+        return f'<use href="#e{n}" {look} style="{timing(moves, start, stop, period)}"/>'
 
-    # one pair of copies per eye frame; a frame seen at several glitch strengths moves its copies instead.
-    # The filters only run while a glitch shows the copy, for about 70 ms at a time.
-    ghosts = "".join(layer([(a, b) for a, b, _ in spans],
-                           ghost_copy(n, spans, 'filter="url(#tC)" opacity="0.8"', -1)
-                           + ghost_copy(n, spans, 'filter="url(#tM)" opacity="0.85"', 1))
-                     for n, spans in ghost_frames.items())
+    def glitch_pass(offset, period=None):
+        ghost_frames, red_spans, bands, rest = {}, {}, {}, {}
+        for event_index, (start_at, end_at, eye_shift, burst, overlays) in enumerate(glitch_log):
+            items = [item for window_index, item in overlays if not (period and window_index)]
+            # the eye-window bands come first in every glitch, so they can follow the eye frame by frame
+            # while lines, text and terminal bands stay one copy per glitch
+            slots, spans = rest.setdefault(burst, ({}, {}))
+            slots[event_index] = "".join(item for item in items if isinstance(item, str))
+            spans[event_index] = [(start_at + offset, end_at + offset)]
+            for n, a, b in segments(start_at + offset, end_at + offset):
+                ghost_frames.setdefault(n, []).append((a, b, eye_shift))
+                red_spans.setdefault(n, []).append((a, b))
+                slots, spans = bands.setdefault(burst, ({}, {}))
+                if (event_index, n) not in slots:
+                    slots[(event_index, n)] = "".join(item[0] + strip_rows(n, item[1], item[2]) + item[3]
+                                                      for item in items if not isinstance(item, str))
+                spans.setdefault((event_index, n), []).append((a, b))
+        # one pair of copies per eye frame; a frame seen at several glitch strengths moves its copies instead.
+        # The filters only run while a glitch shows the copy, for about 70 ms at a time.
+        ghosts = "".join(layer([(a, b) for a, b, _ in spans],
+                               ghost_copy(n, spans, 'filter="url(#tC)" opacity="0.8"', -1, period)
+                               + ghost_copy(n, spans, 'filter="url(#tM)" opacity="0.85"', 1, period), None, period)
+                         for n, spans in ghost_frames.items())
+        reds = "".join(layer(spans, f'<use href="#e{n}" class="rd"/>', None, period) for n, spans in red_spans.items())
+        tops = "".join(sprite(*bands[burst], period) + sprite(*rest[burst], period) for burst in rest)
+        return ghosts, reds, tops, set(red_spans)
+
+    first, idle = glitch_pass(0), glitch_pass(idle_period, idle_period)
+    ghosts, reds, tops = (first[i] + idle[i] for i in range(3))
+    copied = first[3] | idle[3]
     nicks = "".join(
         track([(a, b, f"opacity:{opacity};transform:translate({num(sign * s)}px)") for a, b, s in nick_spans],
               "opacity:0", ' class="o"', text_el(tx, command_y + TLH * 0.74, [(HANDLE, None)], TCW, f'fill="{color}"'))
         for color, sign, opacity in (("#00e5ff", -1, 0.85), ("#ff2bd6", 1, 0.9)))
-    tops = "".join(layer(top_spans[key], body) for key, body in top_slots.items())
 
     eye_colors = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
         | {"hl": SHINE, "vn": VEIN, "lu": LID_UP, "ll": LID_LO}
@@ -809,7 +835,7 @@ def build(wide: bool) -> tuple[str, int]:
 
     def eye_frame(n):
         rows = eye_svg(frame_cells[n], ex, ey)
-        if n in red_spans:
+        if n in copied:
             rows = f'<g id="e{n}" class="e">{rows}</g>'
         # opacity for eye frames: they flip often, and an opacity flip is the cheapest change to repaint
         loop = (animation(steps(loop_spans[n], "opacity:0"), t_loop, t_intro, True) if n in loop_spans
@@ -819,7 +845,6 @@ def build(wide: bool) -> tuple[str, int]:
         return f'<g class="fr{" fs" if n == start_id else ""}" style="{intro}"><g style="{loop}">{rows}</g></g>'
 
     eyes = f'<g class="e">{"".join(eye_frame(n) for n in range(len(order)))}</g>'
-    reds = "".join(layer(spans, f'<use href="#e{n}" class="rd"/>') for n, spans in red_spans.items())
     shake = animation(shake_points, scene_end)
 
     body = [
