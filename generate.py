@@ -14,7 +14,9 @@ LAST_NAME = "Murha"
 HANDLE = "mvrha"
 BANNER = "MVRHA"
 TIMEZONE = "Europe/Warsaw"
-OUT_DIR = pathlib.Path(__file__).resolve().parent / "assets"
+ROOT = pathlib.Path(__file__).resolve().parent
+OUT_DIR = ROOT / "assets"
+README = ROOT / "README.md"
 
 FONT = ("ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,"
         "'Liberation Mono','DejaVu Sans Mono',monospace")
@@ -494,9 +496,28 @@ def build(wide: bool) -> tuple[str, int]:
     clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
             f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-            f'xml:space="preserve" role="img" aria-label="{esc(FIRST_NAME)} {esc(LAST_NAME)} — terminal">'
+            f'xml:space="preserve" role="img" aria-label="{html.escape(alt_text())}">'
             f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title><defs>{clip}</defs><style>{style}</style>'
             + "".join(body) + "</svg>"), len(frames)
+
+
+def alt_text() -> str:
+    return (f"Terminal session: {FIRST_NAME} {LAST_NAME} ({HANDLE}). "
+            "An ASCII eye in the next window watches it being typed.")
+
+
+def update_readme() -> None:
+    if not README.exists():
+        return
+    text = README.read_text(encoding="utf-8")
+    new, n = re.subn(r'(<img src="\./assets/terminal\.svg"[^>]*?\salt=")[^"]*(")',
+                     lambda m: m.group(1) + html.escape(alt_text()) + m.group(2), text)
+    if n == 0:
+        print('README.md: no <img src="./assets/terminal.svg" ... alt="..."> found, left as is',
+              file=sys.stderr)
+    elif new != text:
+        README.write_text(new, encoding="utf-8")
+        print("README.md: image description updated")
 
 
 if __name__ == "__main__":
@@ -505,3 +526,4 @@ if __name__ == "__main__":
         svg, n_frames = build(wide)
         (OUT_DIR / file).write_text(svg, encoding="utf-8")
         print(f"{file}: {len(svg.encode()) / 1024:.0f} KB, {n_frames} eye frames")
+    update_readme()
