@@ -19,18 +19,18 @@ README = ROOT / "README.md"
 FONT = ("ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,"
         "'Liberation Mono','DejaVu Sans Mono',monospace")
 T = dict(
-    bg="#0b0714", bar="#130c22", sep="#24163d", border="#34303d",
+    bg="#0d1117", bar="#161b22", sep="#21262d", border="#30363d",
     lights=("#ff5f57", "#febc2e", "#28c840"),
-    title="#9d8cc4", text="#e8e3ff", dim="#8f84b8", cmd="#ffffff", user="#ff4fd8", host="#9d8cc4",
-    path="#3df5ff", sym="#6b5f91", cursor="#3df5ff", live="#3df5ff", accent="#3df5ff", accent2="#ff4fd8",
-    banner=((0, "#ffffff"), (0.5, "#d2cfdc"), (1, "#8c8899")), banner_shadow="#251b36",
-    sclera=((0, "#c3b5f0"), (0.45, "#8a78c8"), (0.8, "#4a3a80"), (1, "#9d8cc4")),
-    iris=((0.38, "#1a0020"), (0.46, "#ff3df2"), (0.6, "#ffc2f8"), (0.8, "#b14dff"), (1, "#3df5ff")),
-    shine="#ffffff",
-    ghost=(("#0a4a55", "#3df5ff"), ("#55104a", "#ff3df2")),
-    red=("#4a0d26", "#ff2b6b", "#ffd0e0"),
-    glitch=("#3df5ff", "#ff3df2", "#b14dff"),
-    glow="#b14dff",
+    title="#7d8590", text="#c9d1d9", dim="#6e7681", cmd="#f0f6fc", user="#58a6ff", host="#8b949e",
+    path="#c9d1d9", sym="#6e7681", cursor="#58a6ff", live="#58a6ff", accent="#58a6ff", accent2="#58a6ff",
+    banner=((0, "#f0f6fc"), (0.5, "#b1bac4"), (1, "#6e7681")), banner_shadow="#1b2a3e",
+    sclera=((0, "#8b929c"), (0.45, "#686f79"), (0.8, "#343a42"), (1, "#8b949e")),
+    iris=((0.38, "#0a1a2e"), (0.46, "#3474b3"), (0.6, "#93bde8"), (0.8, "#3474b3"), (1, "#1a3f6b")),
+    shine="#f2f8ff",
+    ghost=(("#06505c", "#00e5ff"), ("#5a124c", "#ff2bd6")),
+    red=("#820b1a", "#ff1b3a", "#ff2d5e"),
+    glitch=("#00e5ff", "#ff2bd6", "#58a6ff"),
+    glow="#1f6feb",
 )
 
 EYE_COLS, EYE_ROWS = 64, 26
