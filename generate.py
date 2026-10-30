@@ -269,9 +269,10 @@ def banner_rows():
     return [re.sub(r"[^█]", " ", row).rstrip() for row in rows if "█" in row]
 
 
-def banner_svg(rows, x, y, cw, rh, t0, animated=True):
+def banner_svg(rows, x, y, cw, rh, t0, animated=True, row_offset=0):
     parts = []
     for i, row in enumerate(rows):
+        row_index = row_offset + i
         yy = y + i * rh
         main, shadow = [], []
         for m in re.finditer("█+", row):
@@ -282,7 +283,7 @@ def banner_svg(rows, x, y, cw, rh, t0, animated=True):
                  if animated else "<g ")
         parts.append(group + 'shape-rendering="crispEdges">'
                      f'<g fill="{BANNER_SHADOW}">{"".join(shadow)}</g>'
-                     f'<g fill="{BANNER_COLORS[i % len(BANNER_COLORS)]}">{"".join(main)}</g></g>')
+                     f'<g fill="{BANNER_COLORS[row_index % len(BANNER_COLORS)]}">{"".join(main)}</g></g>')
     return "".join(parts)
 
 
@@ -368,7 +369,7 @@ def build(wide: bool) -> tuple[str, int]:
         for segs, lh in outputs:
             if segs == "banner":
                 term.append(banner_svg(banner, tx, y + 4, bcw, brh, delay))
-                strip_output_parts.append(banner_svg(banner, tx, y + 4, bcw, brh, delay, animated=False))
+                strip_output_parts.append(("banner", y + 4, brh, None))
                 w = max(len(row) for row in banner) * bcw
                 marks["banner"] = (tx + w / 2, y + lh / 2)
                 delay += 0.04 * len(banner)
@@ -378,7 +379,7 @@ def build(wide: bool) -> tuple[str, int]:
                     marks["name"] = (tx + w / 2, y + lh / 2)
                 term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
                             + text_el(tx, y + lh * 0.74, segs, TCW) + "</g>")
-                strip_output_parts.append(text_el(tx, y + lh * 0.74, segs, TCW))
+                strip_output_parts.append(("text", y, lh, segs))
                 delay += 0.035
             width = max(width, w)
             y += lh
@@ -457,14 +458,15 @@ def build(wide: bool) -> tuple[str, int]:
     spans(loop, t_loop, "l")
     phase = -round((t_loop - t_intro % t_loop) % t_loop, 3)
 
-    eyes = []
+    eyes, static_frames = [], []
     for n, ((gx, gy, k), sp) in enumerate(frames.items()):
         css.append(keyframes(f"i{n}", sp["i"], t_intro))
         css.append(keyframes(f"l{n}", sp["l"], t_loop))
         css.append(f".f{n}{{animation:l{n} {t_loop}s step-end {phase}s infinite,i{n} {t_intro}s step-end}}")
         start = " fs" if (gx, gy, k) == (0, 0, 1.0) else ""
-        eyes.append(f'<g id="ef{n}" class="fr f{n}{start}"><g class="e">'
-                    f'{eye_svg(render_eye(gx, gy, k), ex, ey)}</g></g>')
+        static_frames.append(f'<g id="ef{n}" class="e">'
+                             f'{eye_svg(render_eye(gx, gy, k), ex, ey)}</g>')
+        eyes.append(f'<g class="fr f{n}{start}"><use href="#ef{n}"/></g>')
     status_y = ey + EH + 16
     status_x = lx + PAD + 9 * LCW
     status = [text_el(lx + PAD, status_y, [("●", "lv")], LCW),
@@ -585,7 +587,7 @@ def build(wide: bool) -> tuple[str, int]:
         overload_cells = brighten(glitch_cells(frame_cells[active_frame(overload_at)], rect))
         sync_frames = active_frames(spawned_at + 0.5, live_until)
         mini_markup.append(
-            f'<g class="mini {window_class}">'
+            f'<g class="mini {window_class}" font-weight="700">'
             f'<rect x="{box_x:.2f}" y="{box_y:.2f}" width="{box_w:.2f}" height="{box_h:.2f}" '
             f'rx="2" fill="#0a1220" stroke="#58a6ff" stroke-width="0.8"/>'
             f'<path d="M{box_x:.2f} {y0 - 1.5:.2f}h{box_w:.2f}" stroke="#1f3a5f"/>'
@@ -619,13 +621,8 @@ def build(wide: bool) -> tuple[str, int]:
             f'{text_el(status_x, status_y, [(label, "co")], LCW)}</g>')
 
     command_text = text_el(tx, command_y + TLH * 0.74, p + [("whoami", "cc")], TCW)
-    left_command = left[0]
-    left_strip = (f'<g id="eyeStripContent"><g class="e">'
-                  + "".join(f'<use href="#ef{n}" class="fr f{n}"/>' for n in range(len(frame_items)))
-                  + f'</g>{left_command}</g>')
-    right_strip = (f'<g id="shellStripContent">{command_text}'
-                   f'{"".join(strip_output_parts)}</g>')
-    extra_defs.extend((left_strip, right_strip))
+    left_command = text_el(lx + PAD, ly + BAR + 24,
+                           prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)
 
     glitch_chars_array = tuple(glitch_chars)
     glitch_colors = ("#58a6ff", "#7ee7f5", "#f0f6fc", "#1f6feb", "#ff2bd6", "#ff3b5c")
@@ -645,13 +642,14 @@ def build(wide: bool) -> tuple[str, int]:
     for event_index, (start_at, end_at, intensity) in enumerate(glitch_events):
         vis = visible_class(f"gx{event_index}", (start_at, end_at))
         eye_shift = 2 + 0.9 * intensity
+        event_frames = active_frames(start_at, end_at)
         eye_ghosts.append(
             f'<g class="{vis}">'
-            + "".join(f'<use href="#ef{n}" class="fr f{n}" filter="url(#tC)" '
+            + "".join(f'<g class="fr f{n}"><use href="#ef{n}" filter="url(#tC)" '
                       f'transform="translate({-eye_shift:.2f} 0)" opacity="0.8"/>'
-                      f'<use href="#ef{n}" class="fr f{n}" filter="url(#tM)" '
-                      f'transform="translate({eye_shift:.2f} 0)" opacity="0.85"/>'
-                      for n in range(len(frame_items))) + "</g>")
+                      f'<use href="#ef{n}" filter="url(#tM)" '
+                      f'transform="translate({eye_shift:.2f} 0)" opacity="0.85"/></g>'
+                      for n in event_frames) + "</g>")
         nick_shift = 3 + 1.4 * intensity
         nick_cyan = text_el(tx, command_y + TLH * 0.74, [(HANDLE, None)], TCW,
                             'fill="#00e5ff"')
@@ -663,8 +661,8 @@ def build(wide: bool) -> tuple[str, int]:
             f'opacity="0.9">{nick_magenta}</g></g>')
         red_eyes.append(
             f'<g class="{vis}">'
-            + "".join(f'<use href="#ef{n}" class="fr f{n}" filter="url(#tR)"/>'
-                      for n in range(len(frame_items))) + "</g>")
+            + "".join(f'<g class="fr f{n}"><use href="#ef{n}" filter="url(#tR)"/></g>'
+                      for n in event_frames) + "</g>")
 
         overlays = []
         for window_index, (win_x, win_y, win_w, win_h) in enumerate(
@@ -682,11 +680,30 @@ def build(wide: bool) -> tuple[str, int]:
                     f'width="{win_w}" height="{strip_h:.2f}"/></clipPath>')
                 magnitude = rng.uniform(3, 4 + 3.5 * intensity)
                 dx = direction * magnitude
-                use_id = "eyeStripContent" if window_index == 0 else "shellStripContent"
+                if window_index == 0:
+                    content = "".join(
+                        f'<g class="fr f{n}"><use href="#ef{n}"/></g>' for n in event_frames)
+                    baseline = ly + BAR + 24
+                    if strip_y <= baseline <= strip_y + strip_h:
+                        content += left_command.replace(
+                            f'x="{lx + PAD:.1f}"', f'x="{lx + PAD + dx:.1f}"')
+                else:
+                    content = command_text.replace(f'x="{tx:.1f}"', f'x="{tx + dx:.1f}"')
+                    for kind, top, height, segs in strip_output_parts:
+                        if kind == "text":
+                            baseline = top + height * 0.74
+                            if strip_y <= baseline <= strip_y + strip_h:
+                                content += text_el(tx + dx, baseline, segs, TCW)
+                        else:
+                            for row_index, row_text in enumerate(banner):
+                                row_y = top + row_index * height
+                                if row_y <= strip_y + strip_h and row_y + height >= strip_y:
+                                    content += banner_svg([row_text], tx + dx, row_y, bcw, height, 0,
+                                                          animated=False, row_offset=row_index)
                 overlays.append(
                     f'<rect x="{win_x}" y="{strip_y:.2f}" width="{win_w}" height="{strip_h:.2f}" '
                     f'fill="#0d1117"/><g clip-path="url(#{clip_id})">'
-                    f'<use href="#{use_id}" transform="translate({dx:.2f} 0)"/></g>')
+                    f'<g>{content}</g></g>')
 
             for _ in range(1 + int(intensity / 2)):
                 gy = rng.uniform(win_y + BAR + 2, win_y + win_h - 2)
@@ -758,6 +775,7 @@ def build(wide: bool) -> tuple[str, int]:
              "@keyframes cw{from{opacity:1}to{opacity:0}}"
              ".cur,.lv{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}"
              f".scene{{animation:shake {scene_end:.3f}s step-end both}}"
+             "@media(prefers-reduced-motion:reduce){*{animation:none!important}.fr{opacity:0!important}.fs{opacity:1!important}}"
              + "".join(css))
     clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
             f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
@@ -773,7 +791,7 @@ def build(wide: bool) -> tuple[str, int]:
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
             f'xml:space="preserve" role="img" aria-label="{html.escape(alt_text())}">'
             f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title>'
-            f'<defs>{clip}{filters}{"".join(extra_defs)}</defs><style>{style}</style>'
+            f'<defs>{clip}{filters}{"".join(static_frames)}{"".join(extra_defs)}</defs><style>{style}</style>'
             + "".join(body) + "</svg>"), len(frames)
 
 
