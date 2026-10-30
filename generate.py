@@ -5,6 +5,7 @@ import functools
 import html
 import math
 import pathlib
+import random
 import re
 import sys
 from zoneinfo import ZoneInfo
@@ -12,7 +13,7 @@ from zoneinfo import ZoneInfo
 FIRST_NAME = "Ruslan"
 LAST_NAME = "Murha"
 HANDLE = "mvrha"
-BANNER = "MVRHA"
+BANNER = "MVRHAA"
 TIMEZONE = "Europe/Warsaw"
 ROOT = pathlib.Path(__file__).resolve().parent
 OUT_DIR = ROOT / "assets"
@@ -194,7 +195,7 @@ def text_el(x, y, segs, cw, attrs=""):
     n = sum(len(t) for t, _ in segs)
     body = "".join(f'<tspan class="{c}">{esc(t)}</tspan>' if c else esc(t) for t, c in segs)
     return (f'<text x="{x:.1f}" y="{y:.1f}" textLength="{n * cw:.1f}" '
-            f'lengthAdjust="spacingAndGlyphs"{attrs}>{body}</text>')
+            f'lengthAdjust="spacingAndGlyphs"{(" " + attrs.strip()) if attrs else ""}>{body}</text>')
 
 
 def eye_svg(cells, ox, oy):
@@ -268,7 +269,7 @@ def banner_rows():
     return [re.sub(r"[^█]", " ", row).rstrip() for row in rows if "█" in row]
 
 
-def banner_svg(rows, x, y, cw, rh, t0):
+def banner_svg(rows, x, y, cw, rh, t0, animated=True):
     parts = []
     for i, row in enumerate(rows):
         yy = y + i * rh
@@ -277,7 +278,9 @@ def banner_svg(rows, x, y, cw, rh, t0):
             bx, bw = x + m.start() * cw, (m.end() - m.start()) * cw
             shadow.append(f'<rect x="{bx + 2:.1f}" y="{yy + 2:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
             main.append(f'<rect x="{bx:.1f}" y="{yy:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
-        parts.append(f'<g class="on" style="animation-duration:{t0 + i * 0.04:.3f}s" shape-rendering="crispEdges">'
+        group = (f'<g class="on" style="animation-duration:{t0 + i * 0.04:.3f}s" '
+                 if animated else "<g ")
+        parts.append(group + 'shape-rendering="crispEdges">'
                      f'<g fill="{BANNER_SHADOW}">{"".join(shadow)}</g>'
                      f'<g fill="{BANNER_COLORS[i % len(BANNER_COLORS)]}">{"".join(main)}</g></g>')
     return "".join(parts)
@@ -332,6 +335,8 @@ def build(wide: bool) -> tuple[str, int]:
     session = [
         ("whoami", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH)]),
     ]
+    strip_output_parts = []
+    command_y = y
     looks = []
     marks = {}
     t = 0.75
@@ -363,6 +368,7 @@ def build(wide: bool) -> tuple[str, int]:
         for segs, lh in outputs:
             if segs == "banner":
                 term.append(banner_svg(banner, tx, y + 4, bcw, brh, delay))
+                strip_output_parts.append(banner_svg(banner, tx, y + 4, bcw, brh, delay, animated=False))
                 w = max(len(row) for row in banner) * bcw
                 marks["banner"] = (tx + w / 2, y + lh / 2)
                 delay += 0.04 * len(banner)
@@ -372,6 +378,7 @@ def build(wide: bool) -> tuple[str, int]:
                     marks["name"] = (tx + w / 2, y + lh / 2)
                 term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
                             + text_el(tx, y + lh * 0.74, segs, TCW) + "</g>")
+                strip_output_parts.append(text_el(tx, y + lh * 0.74, segs, TCW))
                 delay += 0.035
             width = max(width, w)
             y += lh
@@ -456,8 +463,10 @@ def build(wide: bool) -> tuple[str, int]:
         css.append(keyframes(f"l{n}", sp["l"], t_loop))
         css.append(f".f{n}{{animation:l{n} {t_loop}s step-end {phase}s infinite,i{n} {t_intro}s step-end}}")
         start = " fs" if (gx, gy, k) == (0, 0, 1.0) else ""
-        eyes.append(f'<g class="fr f{n}{start}">{eye_svg(render_eye(gx, gy, k), ex, ey)}</g>')
+        eyes.append(f'<g id="ef{n}" class="fr f{n}{start}"><g class="e">'
+                    f'{eye_svg(render_eye(gx, gy, k), ex, ey)}</g></g>')
     status_y = ey + EH + 16
+    status_x = lx + PAD + 9 * LCW
     status = [text_el(lx + PAD, status_y, [("●", "lv")], LCW),
               text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs")], LCW)]
     for n, (label, sp) in enumerate(labels.items()):
@@ -466,15 +475,268 @@ def build(wide: bool) -> tuple[str, int]:
         css.append(f".lb{n}{{animation:sl{n} {t_loop}s step-end {phase}s infinite,si{n} {t_intro}s step-end}}")
         start = " fs" if label == "watching you" else ""
         status.append(f'<g class="fr lb{n}{start}">'
-                      + text_el(lx + PAD + 9 * LCW, status_y, [(label, "co")], LCW) + "</g>")
+                      + text_el(status_x, status_y, [(label, "co")], LCW) + "</g>")
+
+    frame_items = list(frames.items())
+    frame_ids = {state: n for n, (state, _) in enumerate(frame_items)}
+    frame_cells = {n: render_eye(*state) for n, (state, _) in enumerate(frame_items)}
+
+    def active_frame(at):
+        if at < t_intro:
+            local, seq = at, with_saccades(sorted(intro))
+        else:
+            local = (at - t_intro + phase) % t_loop
+            seq = with_saccades(sorted(loop))
+        state = seq[0][1]
+        for event_time, event_state in seq:
+            if event_time > local:
+                break
+            state = event_state
+        return frame_ids[tuple(state[:3])]
+
+    def active_frames(start_at, end_at):
+        samples = max(1, math.ceil((end_at - start_at) / 0.01))
+        return sorted({active_frame(min(end_at - 1e-6, start_at + i * 0.01))
+                       for i in range(samples + 1)})
+
+    def crop_cells(cells, rect):
+        row, col, height, width = rect
+        return {(r, c): value for (r, c), value in cells.items()
+                if row <= r < row + height and col <= c < col + width}
+
+    def brighten(cells):
+        brighter = {}
+        for key, (char, cls) in cells.items():
+            if cls and cls[0] in "si" and cls[1:].isdigit():
+                colors = SCLERA if cls[0] == "s" else IRIS
+                brighter[key] = (char, f"{cls[0]}{min(int(cls[1:]) + 1, len(colors) - 1)}")
+            else:
+                brighter[key] = (char, cls)
+        return brighter
+
+    def glitch_cells(cells, rect):
+        row, col, height, width = rect
+        shifted, offsets = {}, {}
+        for (r, c), value in crop_cells(cells, rect).items():
+            if r not in offsets:
+                offsets[r] = rng.randint(-3, 3)
+            shifted[(r, c + offsets[r])] = value
+        count = min(len(shifted), int(4 + width / 3))
+        for key in rng.sample(list(shifted), count):
+            shifted[key] = (rng.choice(glitch_chars), "gc")
+        return shifted
+
+    rng = random.Random(12)
+    glitch_chars = "▓▒░█▚▞#@%$&?/\\|"
+    straight = render_eye(0, 0, 1.0)
+    spawn_offsets = [0.35]
+    for gap in (0.6, 0.9, 0.55, 0.8, 0.5, 0.95, 0.7):
+        spawn_offsets.append(spawn_offsets[-1] + gap)
+    spawn_times = [t_out + offset for offset in spawn_offsets]
+    loads = ("1.12", "2.40", "3.87", "5.06", "6.71", "8.33", "9.98")
+    mini_specs = []
+    for index, spawned_at in enumerate(spawn_times):
+        for attempt in range(10000):
+            width, height = rng.randint(9, 16), rng.randint(4, 7)
+            col = rng.randint(1, EYE_COLS - width - 1)
+            row = rng.randint(2, EYE_ROWS - height - 1)
+            rect = (row, col, height, width)
+            occupied = len(crop_cells(straight, rect))
+            if occupied >= 0.8 * width * height:
+                break
+        else:
+            raise RuntimeError("Could not find a sufficiently dense mini-terminal placement")
+        mini_specs.append((index, spawned_at, rect, loads[min(index, len(loads) - 1)]))
+
+    overload_at = spawn_times[6] + 0.75
+    kill_at = overload_at + 6 * 0.08
+    watching_at = kill_at + 0.9
+    scene_end = watching_at + 0.2
+
+    def visible_class(name, span):
+        css.append(keyframes(f"v{name}", [span], scene_end))
+        css.append(f".{name}{{animation:v{name} {scene_end:.3f}s step-end both}}")
+        return name
+
+    mini_markup, extra_defs = [], []
+    mini_tints = "".join(
+        f".mini .s{i}{{fill:{SCLERA[min(i + 1, len(SCLERA) - 1)]}}}"
+        f".mini .i{i}{{fill:{IRIS[min(i + 1, len(IRIS) - 1)]}}}"
+        for i in range(len(SCLERA))
+    )
+    for index, spawned_at, rect, _load in mini_specs:
+        row, col, height, width = rect
+        x, y0 = ex + col * ECW, ey + row * ECH
+        box_x, box_y = x - 2, y0 - 11
+        box_w, box_h = width * ECW + 4, height * ECH + 13
+        content_clip = f"mc{index}"
+        extra_defs.append(
+            f'<clipPath id="{content_clip}"><rect x="{x:.2f}" y="{y0:.2f}" '
+            f'width="{width * ECW:.2f}" height="{height * ECH:.2f}"/></clipPath>')
+        live_until = kill_at
+        window_class = visible_class(f"mw{index}", (spawned_at, live_until))
+        glitch_class = visible_class(f"mg{index}", (spawned_at, spawned_at + 0.14))
+        snapshot_class = visible_class(f"ms{index}", (spawned_at + 0.14, spawned_at + 0.5))
+        sync_class = visible_class(f"my{index}", (spawned_at + 0.5, live_until))
+        title_class = visible_class(f"mt{index}", (spawned_at, spawned_at + 0.5))
+        sync_title_class = visible_class(f"mu{index}", (spawned_at + 0.5, live_until))
+        initial_cells = brighten(glitch_cells(frame_cells[active_frame(spawned_at)], rect))
+        snapshot_cells = brighten(crop_cells(frame_cells[active_frame(spawned_at)], rect))
+        overload_cells = brighten(glitch_cells(frame_cells[active_frame(overload_at)], rect))
+        sync_frames = active_frames(spawned_at + 0.5, live_until)
+        mini_markup.append(
+            f'<g class="mini {window_class}">'
+            f'<rect x="{box_x:.2f}" y="{box_y:.2f}" width="{box_w:.2f}" height="{box_h:.2f}" '
+            f'rx="2" fill="#0a1220" stroke="#58a6ff" stroke-width="0.8"/>'
+            f'<path d="M{box_x:.2f} {y0 - 1.5:.2f}h{box_w:.2f}" stroke="#1f3a5f"/>'
+            f'<g class="{title_class}"><text x="{box_x + 3:.2f}" y="{y0 - 4:.2f}" '
+            f'font-size="7" fill="#58a6ff">pts/{index + 1}</text></g>'
+            f'<g class="{sync_title_class}"><text x="{box_x + 3:.2f}" y="{y0 - 4:.2f}" '
+            f'font-size="7" fill="#58a6ff">pts/{index + 1} · sync</text></g>'
+            f'<g clip-path="url(#{content_clip})">'
+            f'<g class="{glitch_class}"><g class="e">{eye_svg(initial_cells, ex, ey)}</g></g>'
+            f'<g class="{snapshot_class}"><g class="e">{eye_svg(snapshot_cells, ex, ey)}</g></g>'
+            f'<g class="{sync_class}">'
+            + "".join(f'<g class="fr f{n}"><g class="e">'
+                      f'{eye_svg(brighten(crop_cells(cells, rect)), ex, ey)}</g></g>'
+                      for n, cells in frame_cells.items() if n in sync_frames)
+            + f'</g><g class="{visible_class(f"mo{index}", (overload_at, kill_at))}">'
+            f'<g class="e">{eye_svg(overload_cells, ex, ey)}</g></g></g></g>')
+
+    status_events = []
+    for index, spawned_at, _rect, load in mini_specs:
+        next_time = mini_specs[index + 1][1] if index + 1 < len(mini_specs) else overload_at
+        status_events.append((spawned_at, next_time, f"pts/{index + 1} spawned · load {load}"))
+    status_events.extend(((overload_at, kill_at, "overload · load 12.40"),
+                          (kill_at, watching_at, "killall · load 0.41"),
+                          (watching_at, scene_end, "watching you")))
+    status_overlay = []
+    for index, (start_at, end_at, label) in enumerate(status_events):
+        vis = visible_class(f"st{index}", (start_at, end_at))
+        status_overlay.append(
+            f'<g class="{vis}"><rect x="{status_x - 2:.2f}" y="{status_y - LFS + 1:.2f}" '
+            f'width="{lw - PAD - (status_x - lx):.2f}" height="{LFS + 2}" fill="{COL["bg"]}"/>'
+            f'{text_el(status_x, status_y, [(label, "co")], LCW)}</g>')
+
+    command_text = text_el(tx, command_y + TLH * 0.74, p + [("whoami", "cc")], TCW)
+    left_command = left[0]
+    left_strip = (f'<g id="eyeStripContent"><g class="e">'
+                  + "".join(f'<use href="#ef{n}" class="fr f{n}"/>' for n in range(len(frame_items)))
+                  + f'</g>{left_command}</g>')
+    right_strip = (f'<g id="shellStripContent">{command_text}'
+                   f'{"".join(strip_output_parts)}</g>')
+    extra_defs.extend((left_strip, right_strip))
+
+    glitch_chars_array = tuple(glitch_chars)
+    glitch_colors = ("#58a6ff", "#7ee7f5", "#f0f6fc", "#1f6feb", "#ff2bd6", "#ff3b5c")
+    glitch_events = []
+    for index, spawned_at in enumerate(spawn_times):
+        intensity = 1 + 0.55 * index
+        for subframe in range(3):
+            start_at = spawned_at + subframe * 0.07
+            glitch_events.append((start_at, start_at + 0.07, intensity))
+    for subframe in range(6):
+        start_at = overload_at + subframe * 0.08
+        glitch_events.append((start_at, start_at + 0.08, 5.5))
+
+    eye_ghosts, nickname_ghosts, red_eyes, glitch_top = [], [], [], []
+    shake_events = []
+    strip_clip_index = 0
+    for event_index, (start_at, end_at, intensity) in enumerate(glitch_events):
+        vis = visible_class(f"gx{event_index}", (start_at, end_at))
+        eye_shift = 2 + 0.9 * intensity
+        eye_ghosts.append(
+            f'<g class="{vis}">'
+            + "".join(f'<use href="#ef{n}" class="fr f{n}" filter="url(#tC)" '
+                      f'transform="translate({-eye_shift:.2f} 0)" opacity="0.8"/>'
+                      f'<use href="#ef{n}" class="fr f{n}" filter="url(#tM)" '
+                      f'transform="translate({eye_shift:.2f} 0)" opacity="0.85"/>'
+                      for n in range(len(frame_items))) + "</g>")
+        nick_shift = 3 + 1.4 * intensity
+        nick_cyan = text_el(tx, command_y + TLH * 0.74, [(HANDLE, None)], TCW,
+                            'fill="#00e5ff"')
+        nick_magenta = text_el(tx, command_y + TLH * 0.74, [(HANDLE, None)], TCW,
+                               'fill="#ff2bd6"')
+        nickname_ghosts.append(
+            f'<g class="{vis}"><g transform="translate({-nick_shift:.2f} 0)" '
+            f'opacity="0.85">{nick_cyan}</g><g transform="translate({nick_shift:.2f} 0)" '
+            f'opacity="0.9">{nick_magenta}</g></g>')
+        red_eyes.append(
+            f'<g class="{vis}">'
+            + "".join(f'<use href="#ef{n}" class="fr f{n}" filter="url(#tR)"/>'
+                      for n in range(len(frame_items))) + "</g>")
+
+        overlays = []
+        for window_index, (win_x, win_y, win_w, win_h) in enumerate(
+                ((lx, ly, lw, eye_h), (rx, ry, RIGHT_W, term_h))):
+            direction = 1 if window_index == 0 else -1
+            for _ in range(int(1 + intensity)):
+                strip_h = rng.uniform(4, 8 + 2.2 * intensity)
+                min_y = win_y + BAR + 1
+                max_y = max(min_y, win_y + win_h - strip_h - 1)
+                strip_y = rng.uniform(min_y, max_y)
+                clip_id = f"gc{strip_clip_index}"
+                strip_clip_index += 1
+                extra_defs.append(
+                    f'<clipPath id="{clip_id}"><rect x="{win_x}" y="{strip_y:.2f}" '
+                    f'width="{win_w}" height="{strip_h:.2f}"/></clipPath>')
+                magnitude = rng.uniform(3, 4 + 3.5 * intensity)
+                dx = direction * magnitude
+                use_id = "eyeStripContent" if window_index == 0 else "shellStripContent"
+                overlays.append(
+                    f'<rect x="{win_x}" y="{strip_y:.2f}" width="{win_w}" height="{strip_h:.2f}" '
+                    f'fill="#0d1117"/><g clip-path="url(#{clip_id})">'
+                    f'<use href="#{use_id}" transform="translate({dx:.2f} 0)"/></g>')
+
+            for _ in range(1 + int(intensity / 2)):
+                gy = rng.uniform(win_y + BAR + 2, win_y + win_h - 2)
+                color = rng.choice(("#00e5ff", "#ff2bd6"))
+                overlays.append(f'<rect x="{win_x}" y="{gy:.2f}" width="{win_w}" height="1.2" '
+                                f'fill="{color}" opacity="0.65"/>')
+        for _ in range(int(2 + intensity)):
+            win_x, win_y, win_w, win_h = rng.choice(
+                ((lx, ly, lw, eye_h), (rx, ry, RIGHT_W, term_h)))
+            text = "".join(rng.choice(glitch_chars_array) for _ in range(rng.randint(3, 10)))
+            gx = rng.uniform(win_x + 2, win_x + win_w - 48)
+            gy = rng.uniform(win_y + BAR + 10, win_y + win_h - 4)
+            color = rng.choice(glitch_colors)
+            size = rng.choice((8.4, 12.2))
+            overlays.append(f'<text x="{gx:.2f}" y="{gy:.2f}" font-size="{size}" '
+                            f'fill="{color}">{esc(text)}</text>')
+        glitch_top.append(f'<g class="{vis}">{"".join(overlays)}</g>')
+        shake_events.append((start_at, end_at, intensity,
+                             rng.uniform(-(0.6 + 0.5 * intensity), 0.6 + 0.5 * intensity),
+                             rng.uniform(-0.4 * intensity, 0.4 * intensity)))
+
+    shake_points = []
+    shake_times = sorted({0.0, scene_end} |
+                         {t for start_at, end_at, *_ in shake_events for t in (start_at, end_at)})
+    for time in shake_times:
+        active = [event for event in shake_events if event[0] <= time < event[1]]
+        if active:
+            _, _, _, dx, dy = max(active, key=lambda event: event[2])
+        else:
+            dx, dy = 0.0, 0.0
+        shake_points.append(f"{100 * time / scene_end:.4g}%"
+                            f"{{transform:translate({dx:.2f}px,{dy:.2f}px)}}")
+    css.append(f"@keyframes shake{{{''.join(shake_points)}}}")
 
     body = [
-        window(rx, ry, RIGHT_W, term_h, f"{HANDLE}@github: ~ — zsh — 80×24"),
-        f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
-        window_border(rx, ry, RIGHT_W, term_h),
+        '<g class="scene">',
         window(lx, ly, lw, eye_h, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
-        f'<g class="e">{"".join(eyes)}</g><g class="l">{"".join(left)}{"".join(status)}</g>',
+        window(rx, ry, RIGHT_W, term_h, f"{HANDLE}@github: ~ — zsh — 80×24"),
+        f'<g class="l">{"".join(left)}</g>',
+        "".join(eye_ghosts),
+        "".join(nickname_ghosts),
+        f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
+        f'<g class="e">{"".join(eyes)}</g>',
+        "".join(red_eyes),
+        "".join(mini_markup),
+        f'<g class="l">{"".join(status)}{"".join(status_overlay)}</g>',
+        window_border(rx, ry, RIGHT_W, term_h),
         window_border(lx, ly, lw, eye_h),
+        "".join(glitch_top),
+        '</g>',
     ]
 
     classes = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
@@ -483,21 +745,35 @@ def build(wide: bool) -> tuple[str, int]:
            "cn": COL["cmd"], "lv": COL["live"]}
     style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
              f".e text{{font-size:{EFS}px}}.t text{{font-size:{TFS}px}}.l text{{font-size:{LFS}px}}"
+             ".mini text{font-weight:700}"
              f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}"
              ".cn{font-weight:700}"
              + "".join(f".{k}{{fill:{v}}}" for k, v in classes.items())
+             + mini_tints
+             + ".gc{fill:#7ee7f5}"
              + ".fr{opacity:0}.fs{opacity:1}"
              ".on{animation-name:on;animation-timing-function:step-end;animation-fill-mode:both}"
              "@keyframes on{from{opacity:0}to{opacity:1}}"
              ".cw{opacity:0;animation-name:cw;animation-timing-function:step-end;animation-fill-mode:both}"
              "@keyframes cw{from{opacity:1}to{opacity:0}}"
              ".cur,.lv{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}"
+             f".scene{{animation:shake {scene_end:.3f}s step-end both}}"
              + "".join(css))
     clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
             f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
+    filters = (
+        '<filter id="tC" x="-5%" y="-5%" width="110%" height="110%" '
+        'color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="'
+        '0 0 0 0 0  0 0 0 0 0.9  0 0 0 0 1  .5 .5 .5 0 -.12"/></filter>'
+        '<filter id="tM" x="-5%" y="-5%" width="110%" height="110%" '
+        'color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="'
+        '0 0 0 0 1  0 0 0 0 0.17  0 0 0 0 0.84  .5 .5 .5 0 -.12"/></filter>'
+        '<filter id="tR" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="'
+        '.62 .62 .62 0 .08  .06 .06 .06 0 0  .12 .12 .12 0 .02  0 0 0 1 0"/></filter>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
             f'xml:space="preserve" role="img" aria-label="{html.escape(alt_text())}">'
-            f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title><defs>{clip}</defs><style>{style}</style>'
+            f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title>'
+            f'<defs>{clip}{filters}{"".join(extra_defs)}</defs><style>{style}</style>'
             + "".join(body) + "</svg>"), len(frames)
 
 
