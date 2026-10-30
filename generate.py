@@ -19,8 +19,8 @@ README = ROOT / "README.md"
 FONT = ("ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,"
         "'Liberation Mono','DejaVu Sans Mono',monospace")
 T = dict(
-    bg="#0b0714", bar="#130c22", sep="#24163d", border="#3a2560",
-    lights=("#ff4fd8", "#b14dff", "#3df5ff"),
+    bg="#0b0714", bar="#130c22", sep="#24163d", border="#34303d",
+    lights=("#ff5f57", "#febc2e", "#28c840"),
     title="#9d8cc4", text="#e8e3ff", dim="#8f84b8", cmd="#ffffff", user="#ff4fd8", host="#9d8cc4",
     path="#3df5ff", sym="#6b5f91", cursor="#3df5ff", live="#3df5ff", accent="#3df5ff", accent2="#ff4fd8",
     banner=((0, "#ffffff"), (0.5, "#d2cfdc"), (1, "#8c8899")), banner_shadow="#251b36",
@@ -31,7 +31,6 @@ T = dict(
     red=("#4a0d26", "#ff2b6b", "#ffd0e0"),
     glitch=("#3df5ff", "#ff3df2", "#b14dff"),
     glow="#b14dff",
-    border_gradient=((0, "#3df5ff"), (0.5, "#b14dff"), (1, "#ff4fd8")),
 )
 
 EYE_COLS, EYE_ROWS = 64, 26
@@ -372,7 +371,7 @@ class Doc:
     @staticmethod
     def border(x, y, w, h):
         return (f'<rect x="{x + 0.5}" y="{y + 0.5}" width="{w - 1}" height="{h - 1}" rx="9.5" '
-                f'fill="none" stroke="url(#gW)"/>')
+                f'fill="none" stroke="{T["border"]}"/>')
 
 
 class Eye:
@@ -665,9 +664,6 @@ def build(wide: bool) -> tuple[str, int]:
             eye.open() + back + f'<g class="e">{eye.frames()}{eye_front}</g></g>',
             f'<g class="l">{status}</g>',
             page_front]
-    x0, x1 = min(w[0] for w in windows), max(w[0] + w[2] for w in windows)
-    doc.defs.append(f'<linearGradient id="gW" gradientUnits="userSpaceOnUse" x1="{x0}" y1="0" x2="{x1}" y2="0">'
-                    + stops_of(T["border_gradient"]) + "</linearGradient>")
     body += [doc.border(rx, ry, right_w, term_h), doc.border(lx, ly, lw, eye_h)]
     doc.defs.append(f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{right_w}" '
                     f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
