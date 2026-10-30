@@ -18,17 +18,21 @@ README = ROOT / "README.md"
 
 FONT = ("ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,"
         "'Liberation Mono','DejaVu Sans Mono',monospace")
-COL = {
-    "bg": "#0d1117", "bar": "#161b22", "sep": "#21262d", "border": "#30363d",
-    "light": "#30363d", "title": "#7d8590", "text": "#c9d1d9", "dim": "#6e7681",
-    "cmd": "#f0f6fc", "user": "#58a6ff", "host": "#8b949e", "path": "#c9d1d9",
-    "sym": "#6e7681", "cursor": "#58a6ff", "live": "#58a6ff",
-}
-BANNER_COLORS = ["#f0f6fc", "#d1d9e0", "#b1bac4", "#8f99a4", "#6e7681"]
-BANNER_SHADOW = "#1b2a3e"
-SCLERA = ["#22262c", "#343a42", "#4b525b", "#686f79", "#8b929c"]
-IRIS = ["#0a1a2e", "#11294a", "#1a3f6b", "#24598f", "#3474b3", "#5793d1", "#93bde8"]
-SHINE, VEIN, LID_UP, LID_LO = "#f2f8ff", "#3e4651", "#8b949e", "#545b65"
+T = dict(
+    bg="#0b0714", bar="#130c22", sep="#24163d", border="#3a2560",
+    lights=("#ff4fd8", "#b14dff", "#3df5ff"),
+    title="#9d8cc4", text="#e8e3ff", dim="#8f84b8", cmd="#ffffff", user="#ff4fd8", host="#9d8cc4",
+    path="#3df5ff", sym="#6b5f91", cursor="#3df5ff", live="#3df5ff", accent="#3df5ff", accent2="#ff4fd8",
+    banner=((0, "#ffffff"), (0.5, "#d2cfdc"), (1, "#8c8899")), banner_shadow="#251b36",
+    sclera=((0, "#c3b5f0"), (0.45, "#8a78c8"), (0.8, "#4a3a80"), (1, "#9d8cc4")),
+    iris=((0.38, "#1a0020"), (0.46, "#ff3df2"), (0.6, "#ffc2f8"), (0.8, "#b14dff"), (1, "#3df5ff")),
+    shine="#ffffff",
+    ghost=(("#0a4a55", "#3df5ff"), ("#55104a", "#ff3df2")),
+    red=("#4a0d26", "#ff2b6b", "#ffd0e0"),
+    glitch=("#3df5ff", "#ff3df2", "#b14dff"),
+    glow="#b14dff",
+    border_gradient=((0, "#3df5ff"), (0.5, "#b14dff"), (1, "#ff4fd8")),
+)
 
 EYE_COLS, EYE_ROWS = 64, 26
 ECW, ECH, EFS = 5.05, 8.6, 8.4
@@ -40,6 +44,12 @@ TH_I = math.asin(IRIS_R / R)
 SCLERA_RAMP = ".,:;~=+*"
 IRIS_SOFT = ".:;'`"
 IRIS_DENSE = "0OQ8B#%&@"
+EYE_TOP_ROW, EYE_BOTTOM_ROW = 2, 24
+
+TFS, TCW, TLH, BAR, PAD, LFS, LCW = 12.2, 7.35, 17.4, 30, 14, 11, 6.6
+BANNER_ASPECT = 1.93
+HIDE, SHOW = "visibility:hidden", "visibility:visible"
+OFF = 1000
 
 
 def _norm(v):
@@ -135,7 +145,7 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
                     ch = IRIS_DENSE[int(_hash(r, c, 6) * len(IRIS_DENSE))]
                 else:
                     ch = _radial_char(px - pcx, py - pcy)
-                cells[(r, c)] = (ch, f"i{int(v * len(IRIS))}")
+                cells[(r, c)] = (ch, "ir")
                 continue
             v = 0.74 * (0.30 + 0.70 * n[2] ** 0.65)
             if rr < 1.2:
@@ -143,11 +153,10 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
             v = min(0.999, max(0.0, v * shade + jit * 0.05))
             u = abs(px - X0) / A
             if u > 0.6 and _hash(c, r, 7) < 0.05 * (u - 0.6) / 0.4:
-                cells[(r, c)] = ("~", "vn")
+                cells[(r, c)] = ("~", "sc")
                 continue
             idx = int(v * (len(SCLERA_RAMP) - 1) + jit * 1.2)
-            cells[(r, c)] = (SCLERA_RAMP[max(0, min(len(SCLERA_RAMP) - 1, idx))],
-                             f"s{int(v * len(SCLERA))}")
+            cells[(r, c)] = (SCLERA_RAMP[max(0, min(len(SCLERA_RAMP) - 1, idx))], "sc")
     for key, val in _lid_cells(k).items():
         cells.setdefault(key, val)
     return cells
@@ -156,7 +165,7 @@ def render_eye(gx: float, gy: float, k: float) -> dict:
 def _lid_cells(k: float) -> dict:
     closed = k < 0.06
     cells = {}
-    for which, cls in ((0, "lu"), (1, "ll")):
+    for which in (0, 1):
         if closed and which == 1:
             continue
         rows = {}
@@ -173,14 +182,14 @@ def _lid_cells(k: float) -> dict:
                 ch = "/" if s < 0 else "\\"
             else:
                 ch = "'" if f < 0.3 else "-" if f < 0.55 else "." if f < 0.8 else "_"
-            cells.setdefault((r, c), (ch, cls))
+            cells.setdefault((r, c), (ch, "sc"))
             pr = rows.get(c - 1)
             rows[c] = r
             if pr is not None and abs(pr - r) > 1:
                 outer = c - 1 if (c - 0.5) * ECW < X0 else c
                 fill = "/" if pr > r else "\\"
                 for rr in range(min(pr, r) + 1, max(pr, r)):
-                    cells.setdefault((rr, outer), (fill, cls))
+                    cells.setdefault((rr, outer), (fill, "sc"))
     return cells
 
 
@@ -197,52 +206,12 @@ def text_el(x, y, segs, cw, attrs=""):
     n = sum(len(t) for t, _ in segs)
     base = None
     if segs and all(c for _, c in segs):
-        # the most frequent class moves up to <text>, so its runs need no <tspan>
         runs = [c for _, c in segs]
         base = max(dict.fromkeys(runs), key=runs.count)
         attrs = f'class="{base}" {attrs}'
     body = "".join(f'<tspan class="{c}">{esc(t)}</tspan>' if c and c != base else esc(t) for t, c in segs)
     return (f'<text x="{num(x, 1)}" y="{num(y, 1)}" textLength="{num(n * cw, 1)}" '
             f'lengthAdjust="spacingAndGlyphs"{(" " + attrs.strip()) if attrs else ""}>{body}</text>')
-
-
-def eye_svg(cells, ox, oy, rows=range(EYE_ROWS)):
-    out = []
-    for r in rows:
-        cols = sorted(c for (rr, c) in cells if rr == r)
-        if not cols:
-            continue
-        segs, cur, buf = [], None, ""
-        for c in range(cols[0], cols[-1] + 1):
-            ch, cls = cells.get((r, c), (" ", None))
-            if ch != " " and cls != cur:
-                if buf:
-                    segs.append((buf, cur))
-                buf, cur = "", cls
-            buf += ch
-        segs.append((buf, cur))
-        out.append(text_el(ox + cols[0] * ECW, oy + r * ECH + ECH * 0.8, segs, ECW))
-    return "".join(out)
-
-
-def window(x, y, w, h, title):
-    r = 10
-    lights = "".join(f'<circle cx="{x + cx}" cy="{y + BAR / 2}" r="5.5" fill="{COL["light"]}"/>'
-                     for cx in (18, 36, 54))
-    return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{COL["bg"]}"/>'
-            f'<path d="M{x + r} {y}h{w - 2 * r}a{r} {r} 0 0 1 {r} {r}v{BAR - r}h{-w}v{r - BAR}'
-            f'a{r} {r} 0 0 1 {r} {-r}z" fill="{COL["bar"]}"/>'
-            f'<path d="M{x} {y + BAR + 0.5}h{w}" stroke="{COL["sep"]}"/>' + lights
-            + f'<text x="{x + w / 2}" y="{y + 19}" text-anchor="middle" class="wt">{esc(title)}</text>')
-
-
-def window_border(x, y, w, h):
-    return (f'<rect x="{x + 0.5}" y="{y + 0.5}" width="{w - 1}" height="{h - 1}" rx="9.5" '
-            f'fill="none" stroke="{COL["border"]}"/>')
-
-
-def at(x, body):
-    return f'<g transform="translate({x})">{body}</g>' if x else body
 
 
 def steps(spans, idle, origin=0.0):
@@ -255,55 +224,7 @@ def steps(spans, idle, origin=0.0):
     return out + ([(end - origin, idle)] if end is not None else [])
 
 
-def _rgb(color):
-    return [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
-
-
-def _hex(*vals):
-    return "#" + "".join(f"{round(min(1.0, max(0.0, v)) * 255):02x}" for v in vals)
-
-
-def red_tint(color):
-    lum = sum(_rgb(color))
-    return _hex(0.62 * lum + 0.08, 0.06 * lum, 0.12 * lum + 0.02)
-
-
-def prompt(path="~"):
-    return [(HANDLE, "cu"), ("@", "cs"), ("github", "ch"), (" ", None), (path, "cp"), (" % ", "cs")]
-
-
-@functools.cache
-def banner_rows():
-    try:
-        import pyfiglet
-    except ImportError:
-        print("pyfiglet is not installed, so the block-letter banner is left out "
-              "(pip install pyfiglet)", file=sys.stderr)
-        return []
-    rows = pyfiglet.figlet_format(BANNER, font="ansi_shadow", width=200).split("\n")
-    return [re.sub(r"[^█]", " ", row).rstrip() for row in rows if "█" in row]
-
-
-def banner_svg(rows, x, y, cw, rh, t0, animated=True, row_offset=0):
-    parts = []
-    for i, row in enumerate(rows):
-        row_index = row_offset + i
-        yy = y + i * rh
-        main, shadow = [], []
-        for m in re.finditer("█+", row):
-            bx, bw = x + m.start() * cw, (m.end() - m.start()) * cw
-            shadow.append(f'<rect x="{bx + 2:.1f}" y="{yy + 2:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
-            main.append(f'<rect x="{bx:.1f}" y="{yy:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
-        group = (f'<g class="on" style="animation-duration:{t0 + i * 0.04:.3f}s" '
-                 if animated else "<g ")
-        parts.append(group + 'shape-rendering="crispEdges">'
-                     f'<g fill="{BANNER_SHADOW}">{"".join(shadow)}</g>'
-                     f'<g fill="{BANNER_COLORS[row_index % len(BANNER_COLORS)]}">{"".join(main)}</g></g>')
-    return "".join(parts)
-
-
 def with_tweens(seq):
-    # a look slides through eased in-between gazes (on the 0.05 grid, so the way back reuses them)
     out = []
     for t0, st in seq:
         if out and st[2] == 1.0 and out[-1][1][2] == 1.0:
@@ -319,587 +240,465 @@ def with_tweens(seq):
     return out
 
 
-LEFT_W, RIGHT_W, MARGIN, GAP, BAR, PAD = 350, 484, 6, 14, 30, 14
-TFS, TCW, TLH = 12.2, 7.35, 17.4
-BANNER_CW, BANNER_ASPECT = 10.0, 1.93
-LFS, LCW = 11, 6.6
-EYE_TOP = BAR + 30
-# sprite pitch: a sprite keeps its other slots this far off-canvas, one transform step brings a slot in
-OFF = 1000
-EYE_WIN_H = math.ceil(EYE_TOP + EH + 16 + PAD)
+@functools.cache
+def banner_rows():
+    try:
+        import pyfiglet
+    except ImportError:
+        print("pyfiglet is not installed, so the block-letter banner is left out "
+              "(pip install pyfiglet)", file=sys.stderr)
+        return []
+    rows = pyfiglet.figlet_format(BANNER, font="ansi_shadow", width=200).split("\n")
+    return [re.sub(r"[^█]", " ", row).rstrip() for row in rows if "█" in row]
 
 
-def build(wide: bool) -> tuple[str, int]:
-    if wide:
-        lx, ly, lw = MARGIN, MARGIN, LEFT_W
-        rx, ry = MARGIN + LEFT_W + GAP, MARGIN
-        gaze_scale = (1000.0, 650.0)
-    else:
-        lx, ly, lw = MARGIN, MARGIN, RIGHT_W
-        rx, ry = MARGIN, MARGIN + EYE_WIN_H + GAP
-        gaze_scale = (700.0, 1300.0)
+def eye_rows(cells):
+    out = []
+    for r in range(EYE_ROWS):
+        kinds = {}
+        for c in range(EYE_COLS):
+            cell = cells.get((r, c))
+            if cell:
+                kinds.setdefault(cell[1], []).append(c)
+        for kind in ("sc", "ir", "hl"):
+            cols = kinds.get(kind)
+            if not cols:
+                continue
+            own = set(cols)
+            line = "".join(cells[(r, c)][0] if c in own else " " for c in range(cols[0], cols[-1] + 1))
+            out.append(text_el(cols[0] * ECW, r * ECH + ECH * 0.8, [(line, kind)], ECW))
+    return "".join(out)
 
-    css = []
 
-    tx, y = rx + PAD, ry + BAR + 10
-    term = []
+def stops_of(stops):
+    return "".join(f'<stop offset="{o}" stop-color="{c}"/>' for o, c in stops)
 
-    banner = banner_rows()
-    bcw = min(BANNER_CW, (RIGHT_W - 2 * PAD) / max([1] + [len(row) for row in banner]))
-    brh = bcw * BANNER_ASPECT
-    name = [(f"{FIRST_NAME} {LAST_NAME}", "cn"), ("  —  ", "cm"), ("hello, world", "cm")]
-    session = [
-        ("cat me", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH)]),
-    ]
-    strip_output_parts = []
-    command_y = y
-    looks = []
-    marks = {}
-    t = 0.75
-    for i, (cmd, outputs) in enumerate(session):
-        if i:
-            y += 7
-        p = prompt()
-        plen = sum(len(s) for s, _ in p)
-        t_type = t + (0.55 if i == 0 else 0.35)
+
+def iris_gradient(gid, gx, gy):
+    gv = _norm((gx, gy, 1.0))
+    ring = R * math.cos(TH_I)
+    cx, cy = X0 + ring * gv[0], Y0 + ring * gv[1]
+    angle = math.degrees(math.atan2(gv[1], gv[0]))
+    return (f'<radialGradient id="{gid}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" '
+            f'gradientTransform="translate({cx:.2f} {cy:.2f}) rotate({angle:.1f}) '
+            f'scale({IRIS_R * gv[2]:.2f} {IRIS_R:.2f})">' + stops_of(T["iris"]) + "</radialGradient>")
+
+
+def sclera_gradient():
+    return (f'<radialGradient id="gS" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" '
+            f'gradientTransform="translate({X0:.1f} {Y0 - 6:.1f}) scale({A:.1f} {(HU + HL) / 2:.1f})">'
+            + stops_of(T["sclera"]) + "</radialGradient>")
+
+
+def prompt(path="~"):
+    return [(HANDLE, "cu"), ("@", "cs"), ("github", "ch"), (" ", None), (path, "cp"), (" % ", "cs")]
+
+
+PLEN = sum(len(s) for s, _ in prompt())
+
+
+class Doc:
+    def __init__(self):
+        self.css, self.defs, self.kf = [], [], {}
+        self.n = 0
+
+    def uid(self, prefix):
+        self.n += 1
+        return f"{prefix}{self.n}"
+
+    def anim(self, changes, duration, delay=0.0, infinite=False, fill=""):
+        body = "".join(f"{k}{{{v}}}" for k, v in
+                       {f"{100 * t / duration:.4g}%": v for t, v in changes}.items())
+        name = self.kf.setdefault(body, f"k{len(self.kf)}")
+        return (f"{name} {num(duration)}s step-end" + (f" {num(delay)}s" if delay else "")
+                + (" infinite" if infinite else "") + (f" {fill}" if fill else ""))
+
+    def layer(self, spans, inner, period=None):
+        start, stop = spans[0][0], spans[-1][1]
+        changes = steps([(a, b, SHOW) for a, b in spans], HIDE, start)
+        rule = self.anim(changes, period, start, True) if period else self.anim(changes, stop - start, start)
+        return f'<g class="h" style="animation:{rule}">{inner}</g>'
+
+    def appear(self, t, inner):
+        return f'<g class="on" style="animation-duration:{t:.3f}s">{inner}</g>'
+
+    def typed(self, x, y, segs, cmd, t_show, t_type):
+        plen = sum(len(s) for s, _ in segs)
         typing = len(cmd) * 0.065
         t_enter = t_type + typing + 0.22
-        cx, move = tx + plen * TCW, len(cmd) * TCW
-        css.append(f"@keyframes ty{i}{{0%{{transform:translateX(0)}}"
-                   f"{100 * t_type / (t_type + typing):.4g}%{{transform:translateX(0);"
-                   f"animation-timing-function:steps({len(cmd)},end)}}"
-                   f"100%{{transform:translateX({move:.1f}px)}}}}")
-        term.append(
-            f'<g class="on" style="animation-duration:{t:.2f}s">'
-            + text_el(tx, y + TLH * 0.74, p + [(cmd, "cc")], TCW)
-            + f'<g transform="translate({move:.1f},0)" style="animation:ty{i} {t_type + typing:.3f}s linear both">'
-            + f'<rect x="{cx:.1f}" y="{y:.1f}" width="{move + TCW + 1:.1f}" height="{TLH:.1f}" fill="{COL["bg"]}"/>'
-            + f'<g class="cw" style="animation-duration:{t_enter:.2f}s">'
-              f'<rect x="{cx:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>'
-            + "</g></g>")
-        looks.append((t, cx + move / 2, y + TLH / 2))
-        y += TLH
-        t_out = t_enter + 0.05
-        block_top, width, delay = y, 0.0, t_out
-        for segs, lh in outputs:
-            if segs == "banner":
-                term.append(banner_svg(banner, tx, y + 4, bcw, brh, delay))
-                strip_output_parts.append(("banner", y + 4, brh, None))
-                w = max(len(row) for row in banner) * bcw
-                marks["banner"] = (tx + w / 2, y + lh / 2)
-                delay += 0.04 * len(banner)
-            else:
-                w = sum(len(s) for s, _ in segs) * TCW
-                if segs is name:
-                    marks["name"] = (tx + w / 2, y + lh / 2)
-                term.append(f'<g class="on" style="animation-duration:{delay:.3f}s">'
-                            + text_el(tx, y + lh * 0.74, segs, TCW) + "</g>")
-                strip_output_parts.append(("text", y, lh, segs))
-                delay += 0.035
-            width = max(width, w)
-            y += lh
-        looks.append((t_out, tx + width / 2, (block_top + y) / 2))
-        t = delay + 0.5
-    y += 7
-    p = prompt()
-    plen = sum(len(s) for s, _ in p)
-    term.append(f'<g class="on" style="animation-duration:{t:.2f}s">'
-                + text_el(tx, y + TLH * 0.74, p, TCW)
-                + f'<rect class="cur" x="{tx + plen * TCW:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" '
-                  f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>')
-    looks.append((t, tx + plen * TCW, y + TLH / 2))
-    t_final = t
-    term_h = math.ceil(y + TLH + PAD - ry)
+        cx, move = x + plen * TCW, len(cmd) * TCW
+        name = self.uid("ty")
+        self.css.append(f"@keyframes {name}{{0%{{transform:translateX(0)}}"
+                        f"{100 * t_type / (t_type + typing):.4g}%{{transform:translateX(0);"
+                        f"animation-timing-function:steps({len(cmd)},end)}}"
+                        f"100%{{transform:translateX({move:.1f}px)}}}}")
+        markup = self.appear(t_show, text_el(x, y + TLH * 0.74, segs + [(cmd, "cc")], TCW)
+                             + f'<g transform="translate({move:.1f},0)" style="animation:{name} '
+                               f'{t_type + typing:.3f}s linear both">'
+                             + f'<rect x="{cx:.1f}" y="{y:.1f}" width="{move + TCW + 1:.1f}" height="{TLH:.1f}" '
+                               f'fill="{T["bg"]}"/>'
+                             + f'<g class="cw" style="animation-duration:{t_enter:.2f}s">'
+                               f'<rect x="{cx:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" height="{TLH - 3:.1f}" '
+                               f'class="cb"/></g></g>')
+        return markup, t_enter, (cx + move / 2, y + TLH / 2)
 
-    if wide:
-        eye_h = term_h = max(EYE_WIN_H, term_h)
-        W, H = MARGIN * 2 + LEFT_W + GAP + RIGHT_W, MARGIN * 2 + term_h
-    else:
-        eye_h = EYE_WIN_H
-        W, H = MARGIN * 2 + RIGHT_W, MARGIN * 2 + eye_h + GAP + term_h
+    def banner(self, rows, x, y, cw, rh, t0=None):
+        if "gB" not in "".join(self.defs):
+            self.defs.append(f'<linearGradient id="gB" gradientUnits="userSpaceOnUse" x1="0" y1="{y:.1f}" '
+                             f'x2="0" y2="{y + len(rows) * rh:.1f}">' + stops_of(T["banner"]) + "</linearGradient>")
+        parts = []
+        for i, row in enumerate(rows):
+            yy = y + i * rh
+            main, shadow = [], []
+            for m in re.finditer("█+", row):
+                bx, bw = x + m.start() * cw, (m.end() - m.start()) * cw
+                shadow.append(f'<rect x="{bx + 2:.1f}" y="{yy + 2:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
+                main.append(f'<rect x="{bx:.1f}" y="{yy:.1f}" width="{bw:.1f}" height="{rh:.1f}"/>')
+            body = (f'<g fill="{T["banner_shadow"]}">{"".join(shadow)}</g>'
+                    f'<g fill="url(#gB)">{"".join(main)}</g>')
+            parts.append(self.appear(t0 + i * 0.04, body) if t0 is not None else body)
+        return f'<g shape-rendering="crispEdges">{"".join(parts)}</g>'
 
-    ex, ey = lx + (lw - EW) / 2, ly + EYE_TOP
-    ecx, ecy = ex + X0, ey + Y0
-    left = [text_el(lx + PAD, ly + BAR + 24, prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)]
+    def window(self, x, y, w, h, title):
+        r = 10
+        dots = "".join(f'<circle cx="{x + cx}" cy="{y + BAR / 2}" r="5.5" fill="{c}"/>'
+                       for cx, c in zip((18, 36, 54), T["lights"]))
+        return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{T["bg"]}"/>'
+                f'<path d="M{x + r} {y}h{w - 2 * r}a{r} {r} 0 0 1 {r} {r}v{BAR - r}h{-w}v{r - BAR}'
+                f'a{r} {r} 0 0 1 {r} {-r}z" fill="{T["bar"]}"/>'
+                f'<path d="M{x} {y + BAR + 0.5}h{w}" stroke="{T["sep"]}"/>' + dots
+                + f'<text x="{x + w / 2}" y="{y + 19}" text-anchor="middle" class="wt">{esc(title)}</text>')
 
-    def gaze(px, py):
-        gx, gy = (px - ecx) / gaze_scale[0], (py - ecy) / gaze_scale[1]
+    @staticmethod
+    def border(x, y, w, h):
+        return (f'<rect x="{x + 0.5}" y="{y + 0.5}" width="{w - 1}" height="{h - 1}" rx="9.5" '
+                f'fill="none" stroke="url(#gW)"/>')
+
+
+class Eye:
+    def __init__(self, doc, ox, oy, scale, gaze_scale):
+        self.doc, self.ox, self.oy, self.s = doc, ox, oy, scale
+        self.cx, self.cy = ox + scale * X0, oy + scale * Y0
+        self.gaze_scale = gaze_scale
+
+    def gaze(self, px, py):
+        gx, gy = (px - self.cx) / self.gaze_scale[0], (py - self.cy) / self.gaze_scale[1]
         m = math.hypot(gx, gy)
         if m > 0.55:
             gx, gy = gx * 0.55 / m, gy * 0.55 / m
         gy = min(0.32, max(-0.22, gy))
         return round(gx * 20) / 20, round(gy * 20) / 20
 
-    lids = (0.7, 0.4, 0.15, 0.0)
-
+    @staticmethod
     def blink(t0, gx, gy, after):
+        lids = (0.7, 0.4, 0.15, 0.0)
         closing = [(t0 + i * 0.03, (gx, gy, k, "blink")) for i, k in enumerate(lids)]
         opening = [(t0 + 0.16 + i * 0.03, (gx, gy, k, "blink")) for i, k in enumerate(lids[-2::-1])]
         return closing + opening + [(t0 + 0.25, (gx, gy, 1.0, after))]
 
-    intro = [(0.0, (0, 0, 0.0, "waking up"))]
-    intro += [(0.35 + i * 0.045, (0, 0, k, "waking up")) for i, k in enumerate(lids[-2::-1])]
-    intro.append((0.5, (0, 0, 1.0, "watching you")))
-    for tl, px, py in looks:
-        intro.append((tl, (*gaze(px, py), 1.0, "reading the terminal")))
-    intro.append((t_final + 1.0, (0, 0, 1.0, "watching you")))
-    intro += blink(t_final + 1.7, 0, 0, "watching you")
-    t_intro = round(t_final + 2.6, 2)
+    def plan(self, looks, t_final, glances):
+        lids = (0.7, 0.4, 0.15, 0.0)
+        intro = [(0.0, (0, 0, 0.0, "waking up"))]
+        intro += [(0.35 + i * 0.045, (0, 0, k, "waking up")) for i, k in enumerate(lids[-2::-1])]
+        intro.append((0.5, (0, 0, 1.0, "watching you")))
+        for t, px, py, k, label in looks:
+            intro.append((t, (*self.gaze(px, py), k, label)))
+        intro.append((t_final + 1.0, (0, 0, 1.0, "watching you")))
+        intro += self.blink(t_final + 1.7, 0, 0, "watching you")
+        self.t_intro = round(t_final + 2.6, 2)
 
-    look_banner = gaze(*marks.get("banner", marks["name"]))
-    look_name = gaze(*marks["name"])
-    loop = [(0.0, (0, 0, 1.0, "watching you")),
-            (1.8, (-0.45, 0.05, 1.0, "looking around")),
-            (2.9, (-0.35, -0.2, 1.0, "looking around")),
-            (3.7, (0, 0, 1.0, "watching you"))]
-    loop += blink(4.3, 0, 0, "watching you")
-    loop += [(5.6, (*look_banner, 1.0, "reading the terminal")),
-             (6.8, (*look_name, 1.0, "reading the terminal")),
-             (7.8, (0, 0, 1.0, "watching you")),
-             (8.8, (-0.25, 0.3, 1.0, "looking around")),
-             (9.7, (0, 0, 1.0, "watching you"))]
-    loop += blink(10.3, 0, 0, "watching you") + blink(10.75, 0, 0, "watching you")
-    loop += [(11.6, (0.3, -0.2, 1.0, "looking around")),
-             (12.5, (0, 0, 1.0, "watching you"))]
-    t_loop = 13.6
+        first, second = self.gaze(*glances[0]), self.gaze(*glances[1])
+        loop = [(0.0, (0, 0, 1.0, "watching you")),
+                (1.8, (-0.45, 0.05, 1.0, "looking around")),
+                (2.9, (-0.35, -0.2, 1.0, "looking around")),
+                (3.7, (0, 0, 1.0, "watching you"))]
+        loop += self.blink(4.3, 0, 0, "watching you")
+        loop += [(5.6, (*first, 1.0, "reading the terminal")),
+                 (6.8, (*second, 1.0, "reading the terminal")),
+                 (7.8, (0, 0, 1.0, "watching you")),
+                 (8.8, (-0.25, 0.3, 1.0, "looking around")),
+                 (9.7, (0, 0, 1.0, "watching you"))]
+        loop += self.blink(10.3, 0, 0, "watching you") + self.blink(10.75, 0, 0, "watching you")
+        loop += [(11.6, (0.3, -0.2, 1.0, "looking around")),
+                 (12.5, (0, 0, 1.0, "watching you"))]
+        self.t_loop = 13.6
 
-    seq_i, seq_l = with_tweens(sorted(intro)), with_tweens(sorted(loop))
-    order = list(dict.fromkeys(tuple(state[:3]) for _, state in seq_i + seq_l))
-    label_order = list(dict.fromkeys(state[3] for _, state in seq_i + seq_l))
-    frame_ids = {state: n for n, state in enumerate(order)}
-    frame_cells = {n: render_eye(*state) for n, state in enumerate(order)}
-    keyframe_names = {}
+        self.seq_i, self.seq_l = with_tweens(sorted(intro)), with_tweens(sorted(loop))
+        self.order = list(dict.fromkeys(tuple(st[:3]) for _, st in self.seq_i + self.seq_l))
+        self.labels = list(dict.fromkeys(st[3] for _, st in self.seq_i + self.seq_l))
+        self.frame_ids = {state: n for n, state in enumerate(self.order)}
+        self.cells = {n: render_eye(*state) for n, state in enumerate(self.order)}
+        gazes = list(dict.fromkeys(state[:2] for state in self.order))
+        self.grad = {n: gazes.index(state[:2]) for n, state in enumerate(self.order)}
+        self.doc.defs.append(sclera_gradient())
+        self.doc.defs += [iris_gradient(f"gI{j}", gx, gy) for j, (gx, gy) in enumerate(gazes)]
 
-    def animation(changes, duration, delay=0.0, infinite=False, fill=""):
-        body = "".join(f"{k}{{{v}}}" for k, v in
-                       {f"{100 * t / duration:.4g}%": v for t, v in changes}.items())
-        name = keyframe_names.setdefault(body, f"k{len(keyframe_names)}")
-        rule = f"animation:{name} {num(duration)}s step-end" + (f" {num(delay)}s" if delay else "")
-        rule += (" infinite" if infinite else "") + (f" {fill}" if fill else "")
-        # --d repeats the delay so a capture can freeze any moment with calc(var(--d) - T)
-        return rule + (f";--d:{num(delay)}s" if delay else "")
-
-    def shift_to(x):
-        return f"transform:translate({num(-x)}px)" if x else "transform:none"
-
-    # three eye loops per idle glitch, so every repeat meets the eye in the same pose
-    idle_period = 3 * t_loop
-
-    def timing(changes, start, stop, period):
-        return animation(changes, period, start, True) if period else animation(changes, stop - start, start)
-
-    def track(spans, idle, attrs, inner, period=None):
-        start, stop = spans[0][0], spans[-1][1]
-        return f'<g{attrs} style="{timing(steps(spans, idle, start), start, stop, period)}">{inner}</g>'
-
-    def layer(spans, inner, shifts=None, period=None):
-        # opacity, not visibility or display: it is not inherited, so flipping it never restyles the layer,
-        # and a hidden layer is replayed from the paint cache instead of being repainted
-        values = ["opacity:1" + (f";{shift_to(x)}" if x else "") for x in shifts or [0] * len(spans)]
-        return track([(a, b, v) for (a, b), v in zip(spans, values)], "opacity:0", ' class="h"', inner, period)
-
-    def sprite(slots, spans, period=None):
-        # small sprites only: moving a group costs in proportion to everything inside it
-        keys = list(slots)
-        moves = sorted((a, b, shift_to(OFF * (i + 1))) for i, key in enumerate(keys) for a, b in spans[key])
-        start, stop = moves[0][0], moves[-1][1]
-        return (f'<g style="{timing(steps(moves, "transform:none", start), start, stop, period)}">'
-                + "".join(at(OFF * (i + 1), slots[key]) for i, key in enumerate(keys)) + "</g>")
-
-    def looped(pos, key, inner):
-        intro_steps = [(t0, shift_to(pos[key(state)])) for t0, state in seq_i]
-        loop_steps = [(t0, shift_to(pos[key(state)])) for t0, state in seq_l]
-        return (f'<g style="{animation(intro_steps, t_intro)}">'
-                f'<g style="{animation(loop_steps, t_loop, t_intro, True)}">{inner}</g></g>')
-
-    def frame_spans(seq, total):
-        spans = {}
-        for i, (t0, state) in enumerate(seq):
-            t1 = seq[i + 1][0] if i + 1 < len(seq) else total
-            spans.setdefault(frame_ids[tuple(state[:3])], []).append((t0, t1, "opacity:1"))
-        return spans
-
-    label_pos = {k: OFF * i for i, k in enumerate(
-        ["watching you"] + [k for k in label_order if k != "watching you"])}
-
-    def shown_frame(at):
-        local, seq = (at, seq_i) if at < t_intro else ((at - t_intro) % t_loop, seq_l)
+    def shown_frame(self, at):
+        local, seq = (at, self.seq_i) if at < self.t_intro else ((at - self.t_intro) % self.t_loop, self.seq_l)
         state = seq[0][1]
-        for event_time, event_state in seq:
-            if event_time > local:
+        for t, st in seq:
+            if t > local:
                 break
-            state = event_state
-        return frame_ids[tuple(state[:3])]
+            state = st
+        return self.frame_ids[tuple(state[:3])]
 
-    def crop_cells(cells, rect):
-        row, col, height, width = rect
-        return {(r, c): value for (r, c), value in cells.items()
-                if row <= r < row + height and col <= c < col + width}
+    def frames(self):
+        doc = self.doc
 
-    def brighten(cells):
-        brighter = {}
-        for key, (char, cls) in cells.items():
-            if cls and cls[0] in "si" and cls[1:].isdigit():
-                colors = SCLERA if cls[0] == "s" else IRIS
-                brighter[key] = (char, f"{cls[0]}{min(int(cls[1:]) + 1, len(colors) - 1)}")
-            else:
-                brighter[key] = (char, cls)
-        return brighter
+        def spans(seq, total):
+            out = {}
+            for i, (t0, st) in enumerate(seq):
+                t1 = seq[i + 1][0] if i + 1 < len(seq) else total
+                out.setdefault(self.frame_ids[tuple(st[:3])], []).append((t0, t1, SHOW))
+            return out
 
-    def glitch_cells(cells, rect):
-        row, col, height, width = rect
-        shifted, offsets = {}, {}
-        for (r, c), value in crop_cells(cells, rect).items():
-            if r not in offsets:
-                offsets[r] = rng.randint(-3, 3)
-            shifted[(r, c + offsets[r])] = value
-        count = min(len(shifted), int(4 + width / 3))
-        for key in rng.sample(list(shifted), count):
-            shifted[key] = (rng.choice(glitch_chars), "gc")
-        return shifted
-
-    rng = random.Random(12)
-    glitch_chars = "▓▒░█▚▞#@%$&?/\\|"
-    straight = render_eye(0, 0, 1.0)
-    spawn_offsets = [0.35]
-    for gap in (0.6, 0.9, 0.55, 0.8, 0.5, 0.95, 0.7):
-        spawn_offsets.append(spawn_offsets[-1] + gap)
-    spawn_times = [t_out + offset for offset in spawn_offsets]
-    loads = ("1.12", "2.40", "3.87", "5.06", "6.71", "8.33", "9.98")
-    mini_specs = []
-    for index, spawned_at in enumerate(spawn_times):
-        for attempt in range(10000):
-            width, height = rng.randint(9, 16), rng.randint(4, 7)
-            col = rng.randint(1, EYE_COLS - width - 1)
-            row = rng.randint(2, EYE_ROWS - height - 1)
-            rect = (row, col, height, width)
-            occupied = len(crop_cells(straight, rect))
-            if occupied >= 0.8 * width * height:
-                break
-        else:
-            raise RuntimeError("Could not find a sufficiently dense mini-terminal placement")
-        mini_specs.append((index, spawned_at, rect, loads[min(index, len(loads) - 1)]))
-
-    overload_at = spawn_times[6] + 0.75
-    kill_at = overload_at + 6 * 0.08
-    watching_at = kill_at + 0.9
-    scene_end = watching_at + 0.2
-
-    loops_needed = math.ceil((scene_end + idle_period - t_intro) / t_loop) + 1
-    cuts = sorted({t for t, _ in seq_i} | {t_intro + k * t_loop + t for k in range(loops_needed) for t, _ in seq_l})
-
-    def segments(start, stop):
-        points = [start] + [t for t in cuts if start < t < stop] + [stop]
+        intro_spans, loop_spans = spans(self.seq_i, self.t_intro), spans(self.seq_l, self.t_loop)
+        start = self.frame_ids[(0, 0, 1.0)]
         out = []
-        for a, b in zip(points, points[1:]):
-            n = shown_frame((a + b) / 2)
-            if out and out[-1][0] == n:
-                out[-1][2] = b
-            else:
-                out.append([n, a, b])
-        return out
+        for n in range(len(self.order)):
+            loop = (doc.anim(steps(loop_spans[n], HIDE), self.t_loop, self.t_intro, True) if n in loop_spans
+                    else doc.anim([(0.0, HIDE), (1.0, HIDE)], 1, self.t_intro, fill="forwards"))
+            intro = doc.anim(steps(intro_spans.get(n, []), HIDE) + [(self.t_intro, SHOW)], self.t_intro,
+                             fill="forwards")
+            out.append(f'<g class="fr{" fs" if n == start else ""}" style="animation:{intro}">'
+                       f'<g style="animation:{loop};--ir:url(#gI{self.grad[n]})">'
+                       f'<g id="e{n}" class="e">{eye_rows(self.cells[n])}</g></g></g>')
+        return "".join(out)
 
-    extra_defs, minis = [], []
-    for index, spawned_at, rect, _load in mini_specs:
-        row, col, height, width = rect
-        x, y0 = ex + col * ECW, ey + row * ECH
-        box_x, box_y = x - 2, y0 - 11
-        box_w, box_h = width * ECW + 4, height * ECH + 13
-        extra_defs.append(
-            f'<clipPath id="mc{index}"><rect x="{x:.2f}" y="{y0:.2f}" '
-            f'width="{width * ECW:.2f}" height="{height * ECH:.2f}"/></clipPath>')
-        box = (f'<rect x="{box_x:.2f}" y="{box_y:.2f}" width="{box_w:.2f}" height="{box_h:.2f}" '
-               f'rx="2" fill="#0a1220" stroke="#58a6ff" stroke-width="0.8"/>'
-               f'<path d="M{box_x:.2f} {y0 - 1.5:.2f}h{box_w:.2f}" stroke="#1f3a5f"/>')
-        titles = [f'<text x="{box_x + 3:.2f}" y="{y0 - 4:.2f}" font-size="7" fill="#58a6ff">'
-                  f'pts/{index + 1}{suffix}</text>' for suffix in ("", " · sync")]
-        minis.append((spawned_at, rect, f"mc{index}", box, titles))
+    def label_track(self, x, y):
+        doc = self.doc
+        order = ["watching you"] + [k for k in self.labels if k != "watching you"]
+        pos = {k: OFF * i for i, k in enumerate(order)}
 
-    def mini_cells(spawned_at, rect, offset):
-        spawn_frame = frame_cells[shown_frame(spawned_at + offset)]
-        return (brighten(glitch_cells(spawn_frame, rect)), brighten(crop_cells(spawn_frame, rect)),
-                brighten(glitch_cells(frame_cells[shown_frame(overload_at + offset)], rect)))
+        def shift(v):
+            return f"transform:translate({num(-v)}px)" if v else "transform:none"
 
-    def mini_window(spec, cells, offset, period=None):
-        spawned_at, rect, content_clip, box, titles = spec
-        glitched, snapshot, overloaded = cells
-        s, ov, kill = spawned_at + offset, overload_at + offset, kill_at + offset
-        layers = {"g": eye_svg(glitched, ex, ey), "s": eye_svg(snapshot, ex, ey)}
+        intro = [(t, shift(pos[st[3]])) for t, st in self.seq_i]
+        loop = [(t, shift(pos[st[3]])) for t, st in self.seq_l]
+        inner = "".join(text_el(x + pos[k], y, [(k, "co")], LCW) for k in order)
+        return (f'<g style="animation:{doc.anim(intro, self.t_intro)}">'
+                f'<g style="animation:{doc.anim(loop, self.t_loop, self.t_intro, True)}">{inner}</g></g>')
 
-        def mini_slot(stage, overload_now):
-            if stage in ("g", "s"):
-                title, rows = titles[0], layers[stage]
-            else:
-                title, rows = titles[1], eye_svg(brighten(crop_cells(frame_cells[stage], rect)), ex, ey)
-            if overload_now:
-                rows += eye_svg(overloaded, ex, ey)
-            return title + f'<g clip-path="url(#{content_clip})"><g class="e">{rows}</g></g>'
+    def open(self):
+        scale = f" scale({self.s})" if self.s != 1 else ""
+        return f'<g class="E" transform="translate({num(self.ox, 2)} {num(self.oy, 2)}){scale}">'
 
-        points = sorted(p for p in {s + 0.14, s + 0.5, ov, *cuts} if s < p < kill)
-        slots, spans = {}, {}
-        for a, b in zip([s] + points, points + [kill]):
-            mid = (a + b) / 2
-            stage = "g" if mid < s + 0.14 else "s" if mid < s + 0.5 else shown_frame(mid)
-            key = (stage, mid > ov)
-            slots.setdefault(key, None)
-            spans.setdefault(key, []).append((a, b))
-        content = sprite({key: mini_slot(*key) for key in slots}, spans, period)
-        return track([(s, kill, "opacity:1")], "opacity:0", ' class="h mini" font-weight="700"',
-                     box + content, period)
 
-    mini_markup = [mini_window(spec, mini_cells(spec[0], spec[1], 0), 0) for spec in minis]
+def glitch(doc, eye, bursts, idle, regions, rng):
+    back, eye_front, page_front, shakes = [], [], [], []
+    period, idle_bursts = idle
+    runs = [(b, None) for b in bursts] + [(b, period) for b in idle_bursts]
+    for (t0, count, step, strength), per in runs:
+        shake = []
+        for i in range(count):
+            a, b = t0 + i * step, t0 + (i + 1) * step
+            n = eye.shown_frame((a + b) / 2)
+            j = eye.grad[n]
+            dx = rng.uniform(2.0, 3.0 + 1.4 * strength)
+            back.append(doc.layer([(a, b)], f'<use href="#e{n}" class="gC" x="{-dx:.1f}" opacity=".8"/>'
+                                            f'<use href="#e{n}" class="gM" x="{dx * 0.8:.1f}" opacity=".85"/>', per))
+            front = f'<use href="#e{n}" class="rd"/>' if strength >= 4 else ""
+            ex0, ew = regions["eye"]
+            for _ in range(1 if strength < 2.5 else 2):
+                sh = rng.uniform(5, 9 + 2.2 * strength)
+                sy = rng.uniform(EYE_TOP_ROW * ECH, EYE_BOTTOM_ROW * ECH - sh)
+                cid = doc.uid("c")
+                doc.defs.append(f'<clipPath id="{cid}"><rect x="{ex0:.1f}" y="{sy:.1f}" width="{ew:.1f}" '
+                                f'height="{sh:.1f}"/></clipPath>')
+                sdx = rng.choice((-1, 1)) * rng.uniform(3, 4 + 3.2 * strength)
+                front += (f'<rect x="{ex0:.1f}" y="{sy:.1f}" width="{ew:.1f}" height="{sh:.1f}" fill="{T["bg"]}"/>'
+                          f'<g clip-path="url(#{cid})"><use href="#e{n}" x="{sdx:.1f}" '
+                          f'style="--ir:url(#gI{j})"/></g>')
+            eye_front.append(doc.layer([(a, b)], front, per))
+            page = ""
+            x, y, w, h, snap_first, snap_idle = regions["term"]
+            for _ in range(1 if strength < 3 else 2):
+                sh = rng.uniform(5, 8 + 2.2 * strength)
+                sy = rng.uniform(y, y + h - sh)
+                cid = doc.uid("c")
+                doc.defs.append(f'<clipPath id="{cid}"><rect x="{x:.1f}" y="{sy:.1f}" width="{w:.1f}" '
+                                f'height="{sh:.1f}"/></clipPath>')
+                sdx = rng.choice((-1, 1)) * rng.uniform(3, 4 + 3 * strength)
+                page += (f'<rect x="{x:.1f}" y="{sy:.1f}" width="{w:.1f}" height="{sh:.1f}" fill="{T["bg"]}"/>'
+                         f'<g clip-path="url(#{cid})"><use href="#{snap_idle if per else snap_first}" '
+                         f'x="{sdx:.1f}"/></g>')
+            for wx, wy, ww, wh in regions["windows"]:
+                for _ in range(1 + int(strength / 2.5)):
+                    ly = rng.uniform(wy + BAR + 2, wy + wh - 3)
+                    page += (f'<rect x="{wx}" y="{ly:.1f}" width="{ww}" height="1.2" '
+                             f'fill="{rng.choice(T["glitch"])}" opacity=".65"/>')
+            for _ in range(int(1 + strength / 1.5)):
+                wx, wy, ww, wh = rng.choice(regions["windows"])
+                noise = "".join(rng.choice("▓▒░█▚▞#@%$&?/\\|") for _ in range(rng.randint(3, 9)))
+                page += (f'<text x="{rng.uniform(wx + 4, wx + ww - 60):.1f}" '
+                         f'y="{rng.uniform(wy + BAR + 12, wy + wh - 6):.1f}" '
+                         f'font-size="{rng.choice((8.4, 12.2))}" fill="{rng.choice(T["glitch"] + (T["cmd"],))}">'
+                         f'{esc(noise)}</text>')
+            page_front.append(doc.layer([(a, b)], page, per))
+            if per is None:
+                shake.append((a - t0, f"transform:translate({rng.uniform(-1, 1) * (0.6 + 0.5 * strength):.2f}px,"
+                                      f"{rng.uniform(-0.4, 0.4) * strength:.2f}px)"))
+        if shake:
+            shakes.append(doc.anim(shake, count * step, t0))
+    return "".join(back), "".join(eye_front), "".join(page_front), ",".join(shakes)
 
-    status_y = ey + EH + 16
-    status_x = lx + PAD + 9 * LCW
-    status = [text_el(lx + PAD, status_y, [("●", "lv")], LCW),
-              text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs")], LCW),
-              looped(label_pos, lambda state: state[3],
-                     "".join(at(label_pos[label], text_el(status_x, status_y, [(label, "co")], LCW))
-                             for label in label_order))]
 
-    status_events = []
-    for index, spawned_at, _rect, load in mini_specs:
-        next_time = mini_specs[index + 1][1] if index + 1 < len(mini_specs) else overload_at
-        status_events.append((spawned_at, next_time, f"pts/{index + 1} spawned · load {load}"))
-    status_events.extend(((overload_at, kill_at, "overload · load 12.40"),
-                          (kill_at, watching_at, "killall · load 0.41"),
-                          (watching_at, scene_end, "watching you")))
-    status_slots = "".join(
-        at(OFF * (k + 1),
-           f'<rect x="{status_x - 2:.2f}" y="{status_y - LFS + 1:.2f}" '
-           f'width="{lw - PAD - (status_x - lx):.2f}" height="{LFS + 2}" fill="{COL["bg"]}"/>'
-           + text_el(status_x, status_y, [(label, "co")], LCW))
-        for k, (_, _, label) in enumerate(status_events))
-
-    def status_overlay(offset, period=None):
-        return layer([(s + offset, e + offset) for s, e, _ in status_events], status_slots,
-                     [OFF * (k + 1) for k in range(len(status_events))], period)
-
-    status.append(status_overlay(0))
-
-    command_text = text_el(tx, command_y + TLH * 0.74, p + [(session[0][0], "cc")], TCW)
-    left_command = text_el(lx + PAD, ly + BAR + 24,
-                           prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)
-
-    def strip_rows(n, top, height):
-        rows = [r for r in range(EYE_ROWS) if top - 0.4 * EFS < ey + (r + 0.8) * ECH < top + height + EFS]
-        return f'<g class="e">{eye_svg(frame_cells[n], ex, ey, rows)}</g>'
-
-    windows = ((lx, ly, lw, eye_h), (rx, ry, RIGHT_W, term_h))
-    glitch_chars_array = tuple(glitch_chars)
-    glitch_colors = ("#58a6ff", "#7ee7f5", "#f0f6fc", "#1f6feb", "#ff2bd6", "#ff3b5c")
-    glitch_events = []
-    for index, spawned_at in enumerate(spawn_times):
-        intensity = 1 + 0.55 * index
-        for subframe in range(3):
-            start_at = spawned_at + subframe * 0.07
-            glitch_events.append((start_at, start_at + 0.07, intensity, index))
-    for subframe in range(6):
-        start_at = overload_at + subframe * 0.08
-        glitch_events.append((start_at, start_at + 0.08, 5.5, len(spawn_times)))
-
-    nick_spans, shake_events, glitch_log = [], [], []
-    strip_clip_index = 0
-    for start_at, end_at, intensity, burst in glitch_events:
-        nick_spans.append((start_at, end_at, 3 + 1.4 * intensity))
-        overlays = []
-        for window_index, (win_x, win_y, win_w, win_h) in enumerate(windows):
-            direction = 1 if window_index == 0 else -1
-            # two bands per window at most: each band copies part of the window, which made the image heavy
-            for _ in range(min(2, int(1 + intensity))):
-                strip_h = rng.uniform(4, 8 + 2.2 * intensity)
-                min_y = win_y + BAR + 1
-                max_y = max(min_y, win_y + win_h - strip_h - 1)
-                strip_y = rng.uniform(min_y, max_y)
-                clip_id = f"gc{strip_clip_index}"
-                strip_clip_index += 1
-                extra_defs.append(
-                    f'<clipPath id="{clip_id}"><rect x="{win_x}" y="{strip_y:.2f}" '
-                    f'width="{win_w}" height="{strip_h:.2f}"/></clipPath>')
-                magnitude = rng.uniform(3, 4 + 3.5 * intensity)
-                dx = direction * magnitude
-                head = (f'<rect x="{win_x}" y="{strip_y:.2f}" width="{win_w}" height="{strip_h:.2f}" '
-                        f'fill="#0d1117"/><g clip-path="url(#{clip_id})"><g>')
-                if window_index == 0:
-                    baseline = ly + BAR + 24
-                    tail = (left_command.replace(f'x="{num(lx + PAD, 1)}"', f'x="{num(lx + PAD + dx, 1)}"', 1)
-                            if strip_y <= baseline <= strip_y + strip_h else "")
-                    overlays.append((0, (head, strip_y, strip_h, tail + "</g></g>")))
-                    continue
-                # the shifted prompt line only matters where its glyphs reach the strip
-                baseline = command_y + TLH * 0.74
-                content = (command_text.replace(f'x="{num(tx, 1)}"', f'x="{num(tx + dx, 1)}"', 1)
-                           if strip_y - 10 < baseline < strip_y + strip_h + 24 else "")
-                for kind, top, height, segs in strip_output_parts:
-                    if kind == "text":
-                        baseline = top + height * 0.74
-                        if strip_y <= baseline <= strip_y + strip_h:
-                            content += text_el(tx + dx, baseline, segs, TCW)
-                    else:
-                        for row_index, row_text in enumerate(banner):
-                            row_y = top + row_index * height
-                            if row_y <= strip_y + strip_h and row_y + height >= strip_y:
-                                content += banner_svg([row_text], tx + dx, row_y, bcw, height, 0,
-                                                      animated=False, row_offset=row_index)
-                overlays.append((1, head + content + "</g></g>"))
-
-            for _ in range(1 + int(intensity / 2)):
-                gy = rng.uniform(win_y + BAR + 2, win_y + win_h - 2)
-                color = rng.choice(("#00e5ff", "#ff2bd6"))
-                overlays.append((window_index, f'<rect x="{win_x}" y="{gy:.2f}" width="{win_w}" height="1.2" '
-                                               f'fill="{color}" opacity="0.65"/>'))
-        for _ in range(int(2 + intensity)):
-            window_index = rng.choice((0, 1))
-            win_x, win_y, win_w, win_h = windows[window_index]
-            text = "".join(rng.choice(glitch_chars_array) for _ in range(rng.randint(3, 10)))
-            gx = rng.uniform(win_x + 2, win_x + win_w - 48)
-            gy = rng.uniform(win_y + BAR + 10, win_y + win_h - 4)
-            color = rng.choice(glitch_colors)
-            size = rng.choice((8.4, 12.2))
-            overlays.append((window_index, f'<text x="{gx:.2f}" y="{gy:.2f}" font-size="{size}" '
-                                           f'fill="{color}">{esc(text)}</text>'))
-        glitch_log.append((start_at, end_at, 2 + 0.9 * intensity, burst, overlays))
-        shake_events.append((start_at, end_at, intensity,
-                             rng.uniform(-(0.6 + 0.5 * intensity), 0.6 + 0.5 * intensity),
-                             rng.uniform(-0.4 * intensity, 0.4 * intensity)))
-
-    shake_points = []
-    shake_times = sorted({0.0, scene_end} |
-                         {t for start_at, end_at, *_ in shake_events for t in (start_at, end_at)})
-    for time in shake_times:
-        active = [event for event in shake_events if event[0] <= time < event[1]]
-        if active:
-            _, _, _, dx, dy = max(active, key=lambda event: event[2])
+def story(doc, tx, y, width, banner):
+    term, statics, looks, marks = [], [], [], {}
+    bcw = min(10.0, width / max(len(r) for r in banner)) if banner else 0
+    brh = bcw * BANNER_ASPECT
+    name = [(f"{FIRST_NAME} {LAST_NAME}", "cn"), ("  —  ", "cm"), ("hello, world", "cm")]
+    links = [("github", "ca"), ("  ", None), ("linkedin", "ca"), ("  ", None), ("telegram", "ca"), (" @mvrhaa", "cm")]
+    refuse = [("eye: ", "ce"), ("refusing to stop: someone is still reading this terminal", "cm")]
+    session = [("cat me", ([("banner", len(banner) * brh + 10)] if banner else []) + [(name, TLH, "name")]),
+               ("ls ~/links", [(links, TLH, "links")]),
+               ("./eye --stop", [(refuse, TLH, "refuse")])]
+    t = 0.75
+    glitch_at = None
+    for i, (cmd, outputs) in enumerate(session):
+        if i:
+            y += 7
+        t_type = t + (0.55 if i == 0 else 0.35)
+        markup, t_enter, (mx, my) = doc.typed(tx, y, prompt(), cmd, t, t_type)
+        term.append(markup)
+        statics.append((t_enter, text_el(tx, y + TLH * 0.74, prompt() + [(cmd, "cc")], TCW)))
+        stop = cmd.endswith("--stop")
+        looks.append((t, mx, my, 1.0, "reading the terminal"))
+        if stop:
+            looks.append((t_type + 0.2, mx, my, 0.55, "suspicious"))
+            looks.append((t_enter, mx, my, 0.55, "stop requested"))
+            glitch_at = t_enter
+            t_out = t_enter + 1.5
         else:
-            dx, dy = 0.0, 0.0
-        shake_points.append((time, f"transform:translate({dx:.2f}px,{dy:.2f}px)"))
+            t_out = t_enter + 0.05
+        y += TLH
+        block_top, w_max, delay = y, 0.0, t_out
+        for out in outputs:
+            if out[0] == "banner":
+                term.append(doc.banner(banner, tx, y + 4, bcw, brh, delay))
+                statics.append((delay, doc.banner(banner, tx, y + 4, bcw, brh)))
+                w = max(len(r) for r in banner) * bcw
+                marks["banner"] = (tx + w / 2, y + out[1] / 2)
+                delay += 0.04 * len(banner)
+                lh = out[1]
+            else:
+                segs, lh, mark = out
+                w = sum(len(s) for s, _ in segs) * TCW
+                marks[mark] = (tx + w / 2, y + lh / 2)
+                line = text_el(tx, y + lh * 0.74, segs, TCW)
+                term.append(doc.appear(delay, line))
+                statics.append((delay, line))
+                delay += 0.035
+            w_max = max(w_max, w)
+            y += lh
+        looks.append((t_out, tx + w_max / 2, (block_top + y) / 2, 1.0,
+                      "refusing to stop" if stop else "reading the terminal"))
+        t = delay + 0.5
+    y += 7
+    term.append(doc.appear(t, text_el(tx, y + TLH * 0.74, prompt(), TCW)
+                           + f'<rect class="cur cb" x="{tx + PLEN * TCW:.1f}" y="{y + 2:.1f}" width="{TCW:.1f}" '
+                             f'height="{TLH - 3:.1f}"/>'))
+    looks.append((t, tx + PLEN * TCW, y + TLH / 2, 1.0, "reading the terminal"))
+    return dict(term="".join(term), statics=statics, looks=looks, marks=marks, y=y + TLH, t_final=t,
+                glitch_at=glitch_at)
 
-    # the idle repeat glitches only the eye window and needs its own random mini glitches
-    idle_markup = [mini_window(spec, mini_cells(spec[0], spec[1], idle_period), idle_period, idle_period)
-                   for spec in minis]
-    mini_markup += idle_markup
-    status.append(status_overlay(idle_period, idle_period))
 
-    def ghost_copy(n, spans, look, sign, period):
-        shifts = {s for *_, s in spans}
-        if len(shifts) == 1:
-            return f'<use href="#e{n}" {look} x="{num(sign * shifts.pop())}"/>'
-        start, stop = spans[0][0], spans[-1][1]
-        moves = steps([(a, b, f"transform:translate({num(sign * s)}px)") for a, b, s in spans],
-                      "transform:none", start)
-        return f'<use href="#e{n}" {look} style="{timing(moves, start, stop, period)}"/>'
+def build(wide: bool) -> tuple[str, int]:
+    doc = Doc()
+    banner = banner_rows()
+    margin, gap, left_w, right_w = 6, 14, 350, 484
+    if wide:
+        lx, ly, lw = margin, margin, left_w
+        scale, gaze_scale = 1.0, (1000.0, 650.0)
+        eye_h = math.ceil(BAR + 30 + EH + 16 + PAD)
+        rx, ry = margin + left_w + gap, margin
+    else:
+        lx, ly, lw = margin, margin, right_w
+        scale, gaze_scale = 1.3, (700.0, 1300.0)
+        eye_h = math.ceil(BAR + 36 + (EYE_BOTTOM_ROW - EYE_TOP_ROW) * ECH * scale + 18 + PAD)
+        rx, ry = margin, margin + eye_h + gap
+    tx = rx + PAD
+    s = story(doc, tx, ry + BAR + 10, right_w - 2 * PAD, banner)
+    term_h = math.ceil(s["y"] + PAD - ry)
+    if wide:
+        eye_h = term_h = max(eye_h, term_h)
+        W, H = margin * 2 + left_w + gap + right_w, margin * 2 + term_h
+    else:
+        W, H = margin * 2 + right_w, margin * 2 + eye_h + gap + term_h
+    ox = lx + (lw - EW * scale) / 2
+    oy = ly + BAR + 30 - (0 if wide else EYE_TOP_ROW * ECH * scale - 6)
+    eye = Eye(doc, ox, oy, scale, gaze_scale)
+    eye.plan(s["looks"], s["t_final"], [s["marks"].get("banner", s["marks"]["name"]), s["marks"]["name"]])
 
-    def glitch_pass(offset, period=None):
-        ghost_frames, red_spans, bands, rest = {}, {}, {}, {}
-        for event_index, (start_at, end_at, eye_shift, burst, overlays) in enumerate(glitch_log):
-            items = [item for window_index, item in overlays if not (period and window_index)]
-            # the eye-window bands come first in every glitch, so they can follow the eye frame by frame
-            # while lines, text and terminal bands stay one copy per glitch
-            slots, spans = rest.setdefault(burst, ({}, {}))
-            slots[event_index] = "".join(item for item in items if isinstance(item, str))
-            spans[event_index] = [(start_at + offset, end_at + offset)]
-            for n, a, b in segments(start_at + offset, end_at + offset):
-                ghost_frames.setdefault(n, []).append((a, b, eye_shift))
-                red_spans.setdefault(n, []).append((a, b))
-                slots, spans = bands.setdefault(burst, ({}, {}))
-                if (event_index, n) not in slots:
-                    slots[(event_index, n)] = "".join(item[0] + strip_rows(n, item[1], item[2]) + item[3]
-                                                      for item in items if not isinstance(item, str))
-                spans.setdefault((event_index, n), []).append((a, b))
-        # one pair of copies per eye frame; a frame seen at several glitch strengths moves its copies instead.
-        # The filters only run while a glitch shows the copy, for about 70 ms at a time.
-        ghosts = "".join(layer([(a, b) for a, b, _ in spans],
-                               ghost_copy(n, spans, 'filter="url(#tC)" opacity="0.8"', -1, period)
-                               + ghost_copy(n, spans, 'filter="url(#tM)" opacity="0.85"', 1, period), None, period)
-                         for n, spans in ghost_frames.items())
-        reds = "".join(layer(spans, f'<use href="#e{n}" class="rd"/>', None, period) for n, spans in red_spans.items())
-        tops = "".join(sprite(*bands[burst], period) + sprite(*rest[burst], period) for burst in rest)
-        return ghosts, reds, tops, set(red_spans)
+    first = "".join(m for t, m in s["statics"] if t <= s["glitch_at"] + 1e-6)
+    doc.defs.append(f'<g id="tsA" class="t">{first}</g>'
+                    f'<g id="tsB" class="t">{"".join(m for _, m in s["statics"])}</g>')
 
-    first, idle = glitch_pass(0), glitch_pass(idle_period, idle_period)
-    ghosts, reds, tops = (first[i] + idle[i] for i in range(3))
-    copied = first[3] | idle[3]
-    nicks = "".join(
-        track([(a, b, f"opacity:{opacity};transform:translate({num(sign * s)}px)") for a, b, s in nick_spans],
-              "opacity:0", ' class="o"', text_el(tx, command_y + TLH * 0.74, [(HANDLE, None)], TCW, f'fill="{color}"'))
-        for color, sign, opacity in (("#00e5ff", -1, 0.85), ("#ff2bd6", 1, 0.9)))
+    windows = [(lx, ly, lw, eye_h), (rx, ry, right_w, term_h)]
+    at = s["glitch_at"]
+    bursts = [(at + 0.05, 3, 0.07, 2.4), (at + 0.5, 3, 0.07, 3.4), (at + 0.95, 6, 0.08, 5.0)]
+    period = 3 * eye.t_loop
+    base = eye.t_intro + period
+    idle = (period, [(base + 5.55, 3, 0.07, 1.6), (base + eye.t_loop + 9.0, 3, 0.07, 2.8)])
+    back, eye_front, page_front, shake = glitch(
+        doc, eye, bursts, idle,
+        {"eye": (-(lw - EW * scale) / 2 / scale, lw / scale),
+         "term": (rx + 1, ry + BAR + 4, right_w - 2, term_h - BAR - 6, "tsA", "tsB"),
+         "windows": windows}, random.Random(12))
 
-    eye_colors = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
-        | {"hl": SHINE, "vn": VEIN, "lu": LID_UP, "ll": LID_LO}
+    status_y = (oy + EH + 16) if wide else (oy + EYE_BOTTOM_ROW * ECH * scale + 18)
+    status = (text_el(lx + PAD, status_y, [("●", "lv")], LCW)
+              + text_el(lx + PAD + 2 * LCW, status_y, [("live", "cm"), (" · ", "cs")], LCW)
+              + eye.label_track(lx + PAD + 9 * LCW, status_y))
 
-    def palette(tint):
-        return ";".join(f"--{k}:{tint(c)}" for k, c in eye_colors.items())
+    doc.defs.append(f'<radialGradient id="gG"><stop offset="0" stop-color="{T["glow"]}" stop-opacity=".22"/>'
+                    f'<stop offset=".55" stop-color="{T["glow"]}" stop-opacity=".07"/>'
+                    f'<stop offset="1" stop-color="{T["glow"]}" stop-opacity="0"/></radialGradient>')
+    glow = (f'<ellipse cx="{eye.cx:.1f}" cy="{eye.cy:.1f}" rx="{A * eye.s * 1.15:.1f}" '
+            f'ry="{HU * eye.s * 1.15:.1f}" fill="url(#gG)"/>')
+    left_cmd = text_el(lx + PAD, ly + BAR + 24, prompt("~/eye") + [("./eye --ascii --watch", "cc")], LCW)
+    body = [doc.window(lx, ly, lw, eye_h, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
+            doc.window(rx, ry, right_w, term_h, f"{HANDLE}@github: ~ — zsh — 80×24"),
+            glow,
+            f'<g class="l">{left_cmd}</g>',
+            f'<g class="t" clip-path="url(#clipT)">{s["term"]}</g>',
+            eye.open() + back + f'<g class="e">{eye.frames()}{eye_front}</g></g>',
+            f'<g class="l">{status}</g>',
+            page_front]
+    x0, x1 = min(w[0] for w in windows), max(w[0] + w[2] for w in windows)
+    doc.defs.append(f'<linearGradient id="gW" gradientUnits="userSpaceOnUse" x1="{x0}" y1="0" x2="{x1}" y2="0">'
+                    + stops_of(T["border_gradient"]) + "</linearGradient>")
+    body += [doc.border(rx, ry, right_w, term_h), doc.border(lx, ly, lw, eye_h)]
+    doc.defs.append(f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{right_w}" '
+                    f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
 
-    intro_spans, loop_spans = frame_spans(seq_i, t_intro), frame_spans(seq_l, t_loop)
-    start_id = frame_ids[(0, 0, 1.0)]
-
-    def eye_frame(n):
-        rows = eye_svg(frame_cells[n], ex, ey)
-        if n in copied:
-            rows = f'<g id="e{n}" class="e">{rows}</g>'
-        # opacity for eye frames: they flip often, and an opacity flip is the cheapest change to repaint
-        loop = (animation(steps(loop_spans[n], "opacity:0"), t_loop, t_intro, True) if n in loop_spans
-                else animation([(0.0, "opacity:0"), (1.0, "opacity:0")], 1, t_intro, fill="forwards"))
-        intro = animation(steps(intro_spans.get(n, []), "opacity:0") + [(t_intro, "opacity:1")], t_intro,
-                          fill="forwards")
-        return f'<g class="fr{" fs" if n == start_id else ""}" style="{intro}"><g style="{loop}">{rows}</g></g>'
-
-    eyes = f'<g class="e">{"".join(eye_frame(n) for n in range(len(order)))}</g>'
-    shake = animation(shake_points, scene_end)
-
-    body = [
-        window(lx, ly, lw, eye_h, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
-        window(rx, ry, RIGHT_W, term_h, f"{HANDLE}@github: ~ — zsh — 80×24"),
-        f'<g class="l">{"".join(left)}</g>',
-        ghosts,
-        nicks,
-        f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
-        eyes,
-        reds,
-        "".join(mini_markup),
-        f'<g class="l">{"".join(status)}</g>',
-        window_border(rx, ry, RIGHT_W, term_h),
-        window_border(lx, ly, lw, eye_h),
-        tops,
-    ]
-
-    term_colors = {"cu": COL["user"], "cs": COL["sym"], "ch": COL["host"], "cp": COL["path"],
-                   "cc": COL["cmd"], "cm": COL["dim"], "co": COL["text"], "cn": COL["cmd"], "lv": COL["live"]}
-    mini_tints = ";".join(f"--s{i}:{SCLERA[min(i + 1, len(SCLERA) - 1)]};--i{i}:{IRIS[min(i + 1, len(IRIS) - 1)]}"
-                          for i in range(len(SCLERA)))
-    style = (f"text{{font-family:{FONT};white-space:pre;fill:{COL['text']}}}"
+    term_colors = {"cu": T["user"], "cs": T["sym"], "ch": T["host"], "cp": T["path"], "cc": T["cmd"],
+                   "cm": T["dim"], "co": T["text"], "cn": T["cmd"], "lv": T["live"], "ca": T["accent"],
+                   "ce": T["accent2"]}
+    ghost = T["ghost"]
+    style = (f"svg{{--sc:url(#gS);--hl:{T['shine']}}}"
+             f"text{{font-family:{FONT};white-space:pre;fill:{T['text']}}}"
              f".e text{{font-size:{EFS}px}}.t text{{font-size:{TFS}px}}.l text{{font-size:{LFS}px}}"
-             ".mini text{font-weight:700}"
-             f".wt{{font-size:12px!important;fill:{COL['title']}!important;white-space:normal}}"
-             ".cn{font-weight:700}"
-             + "".join(f".{k}{{fill:var(--{k},{v})}}" for k, v in eye_colors.items())
+             f".wt{{font-size:12px!important;fill:{T['title']}!important;white-space:normal}}"
+             ".cn{font-weight:700}.sc{fill:var(--sc)}.ir{fill:var(--ir)}.hl{fill:var(--hl)}"
              + "".join(f".{k}{{fill:{v}}}" for k, v in term_colors.items())
-             + f".mini{{{mini_tints}}}"
-             + f".rd{{{palette(red_tint)}}}"
-             ".gc{fill:#7ee7f5}.fr,.o,.h{opacity:0}"
+             + f".cb{{fill:{T['cursor']}}}"
+             + f".gC{{--sc:{ghost[0][0]};--ir:{ghost[0][1]};--hl:{ghost[0][1]}}}"
+             + f".gM{{--sc:{ghost[1][0]};--ir:{ghost[1][1]};--hl:{ghost[1][1]}}}"
+             + f".rd{{--sc:{T['red'][0]};--ir:{T['red'][1]};--hl:{T['red'][2]}}}"
+             ".fr,.h{visibility:hidden}"
              ".on{animation-name:on;animation-timing-function:step-end;animation-fill-mode:both}"
-             "@keyframes on{from{opacity:0}to{opacity:1}}"
+             "@keyframes on{from{visibility:hidden}to{visibility:visible}}"
              ".cw{opacity:0;animation-name:cw;animation-timing-function:step-end;animation-fill-mode:both}"
              "@keyframes cw{from{opacity:1}to{opacity:0}}"
              ".cur,.lv{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}"
-             "@media(prefers-reduced-motion:reduce){*{animation:none!important}.fs{opacity:1}}"
-             + "".join(css) + "".join(f"@keyframes {name}{{{kf}}}" for kf, name in keyframe_names.items()))
-    clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
-            f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
-    filters = (
-        '<filter id="tC" x="-5%" y="-5%" width="110%" height="110%" '
-        'color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="'
-        '0 0 0 0 0  0 0 0 0 0.9  0 0 0 0 1  .5 .5 .5 0 -.12"/></filter>'
-        '<filter id="tM" x="-5%" y="-5%" width="110%" height="110%" '
-        'color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="'
-        '0 0 0 0 1  0 0 0 0 0.17  0 0 0 0 0.84  .5 .5 .5 0 -.12"/></filter>')
-    # the shake moves the root element: moving a group instead makes every frame inside it costlier to repaint
-    return (f'<svg style="{shake}" '
-            f'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-            f'xml:space="preserve" role="img" aria-label="{html.escape(alt_text())}">'
-            f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title>'
-            f'<defs>{clip}{filters}{"".join(extra_defs)}</defs><style>{style}</style>'
-            + "".join(body) + "</svg>"), len(order)
+             "@media(prefers-reduced-motion:reduce){*{animation:none!important}.fs{visibility:visible}}"
+             + "".join(doc.css) + "".join(f"@keyframes {n}{{{kf}}}" for kf, n in doc.kf.items()))
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {num(W, 1)} {num(H, 1)}" width="{num(W, 1)}" '
+           f'height="{num(H, 1)}" xml:space="preserve" role="img" aria-label="{html.escape(alt_text())}">'
+           f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title><defs>{"".join(doc.defs)}</defs><style>{style}</style>'
+           f'<g style="animation:{shake}">' + "".join(body) + "</g></svg>")
+    return svg, len(eye.order)
 
 
 def alt_text() -> str:
