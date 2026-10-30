@@ -295,23 +295,22 @@ def with_saccades(seq):
     return out
 
 
-LEFT_W, RIGHT_W, WIN_H, MARGIN, GAP, BAR, PAD = 350, 484, 330, 6, 14, 30, 14
+LEFT_W, RIGHT_W, MARGIN, GAP, BAR, PAD = 350, 484, 6, 14, 30, 14
 TFS, TCW, TLH = 12.2, 7.35, 17.4
 BANNER_CW, BANNER_ASPECT = 10.0, 1.93
 LFS, LCW = 11, 6.6
 EYE_TOP = BAR + 30
+EYE_WIN_H = math.ceil(EYE_TOP + EH + 16 + PAD)
 
 
 def build(wide: bool) -> tuple[str, int]:
     if wide:
-        W, H = MARGIN * 2 + LEFT_W + GAP + RIGHT_W, MARGIN * 2 + WIN_H
         lx, ly, lw = MARGIN, MARGIN, LEFT_W
         rx, ry = MARGIN + LEFT_W + GAP, MARGIN
         gaze_scale = (1000.0, 650.0)
     else:
-        W, H = MARGIN * 2 + RIGHT_W, MARGIN * 2 + WIN_H * 2 + GAP
         lx, ly, lw = MARGIN, MARGIN, RIGHT_W
-        rx, ry = MARGIN, MARGIN + WIN_H + GAP
+        rx, ry = MARGIN, MARGIN + EYE_WIN_H + GAP
         gaze_scale = (700.0, 1300.0)
 
     css = []
@@ -385,6 +384,14 @@ def build(wide: bool) -> tuple[str, int]:
                   f'height="{TLH - 3:.1f}" fill="{COL["cursor"]}"/></g>')
     looks.append((t, tx + plen * TCW, y + TLH / 2))
     t_final = t
+    term_h = math.ceil(y + TLH + PAD - ry)
+
+    if wide:
+        eye_h = term_h = max(EYE_WIN_H, term_h)
+        W, H = MARGIN * 2 + LEFT_W + GAP + RIGHT_W, MARGIN * 2 + term_h
+    else:
+        eye_h = EYE_WIN_H
+        W, H = MARGIN * 2 + RIGHT_W, MARGIN * 2 + eye_h + GAP + term_h
 
     ex, ey = lx + (lw - EW) / 2, ly + EYE_TOP
     ecx, ecy = ex + X0, ey + Y0
@@ -460,12 +467,12 @@ def build(wide: bool) -> tuple[str, int]:
                       + text_el(lx + PAD + 9 * LCW, status_y, [(label, "co")], LCW) + "</g>")
 
     body = [
-        window(rx, ry, RIGHT_W, WIN_H, f"{HANDLE}@github: ~ — zsh — 80×24"),
+        window(rx, ry, RIGHT_W, term_h, f"{HANDLE}@github: ~ — zsh — 80×24"),
         f'<g class="t" clip-path="url(#clipT)">{"".join(term)}</g>',
-        window_border(rx, ry, RIGHT_W, WIN_H),
-        window(lx, ly, lw, WIN_H, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
+        window_border(rx, ry, RIGHT_W, term_h),
+        window(lx, ly, lw, eye_h, f"eye — ascii — {EYE_COLS}×{EYE_ROWS}"),
         f'<g class="e">{"".join(eyes)}</g><g class="l">{"".join(left)}{"".join(status)}</g>',
-        window_border(lx, ly, lw, WIN_H),
+        window_border(lx, ly, lw, eye_h),
     ]
 
     classes = {f"s{i}": c for i, c in enumerate(SCLERA)} | {f"i{i}": c for i, c in enumerate(IRIS)} \
@@ -485,7 +492,7 @@ def build(wide: bool) -> tuple[str, int]:
              ".cur,.lv{animation:bl 1.1s step-end infinite}@keyframes bl{0%{opacity:1}50%{opacity:0}}"
              + "".join(css))
     clip = (f'<clipPath id="clipT"><rect x="{rx}" y="{ry + BAR + 1}" width="{RIGHT_W}" '
-            f'height="{WIN_H - BAR - 1}" rx="10"/></clipPath>')
+            f'height="{term_h - BAR - 1}" rx="10"/></clipPath>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
             f'xml:space="preserve" role="img" aria-label="{esc(FIRST_NAME)} {esc(LAST_NAME)} — terminal">'
             f'<title>{esc(FIRST_NAME)} {esc(LAST_NAME)}</title><defs>{clip}</defs><style>{style}</style>'
