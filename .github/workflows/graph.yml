@@ -1,15 +1,17 @@
-name: refresh terminal header
+name: refresh profile graph
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "23 5 * * *"
   push:
     branches: [main]
-    paths: [generate.py]
+    paths: [generate.py, "fonts/**", .github/workflows/graph.yml]
 
 permissions:
   contents: write
 
-concurrency: terminal-header
+concurrency: profile-graph
 
 jobs:
   render:
@@ -19,14 +21,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pyfiglet
+      - run: pip install fonttools==4.55.0 brotli==1.1.0
       - run: python generate.py
-      - name: Commit the new SVGs and README
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit the new graph and README
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config merge.rendered.driver "cp %B %A"
-          git add assets/terminal.svg assets/terminal-mobile.svg README.md
-          git diff --cached --quiet || git commit -m "refresh terminal header"
+          git add assets/graph.svg assets/graph-mobile.svg README.md
+          git diff --cached --quiet || git commit -m "refresh profile graph"
           git pull --rebase origin main
           git push
