@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import collections
 import functools
+import hashlib
 import html
 import io
 import json
@@ -17,7 +18,7 @@ from fontTools.ttLib import TTFont
 
 NAME = "Ruslan Murha"
 HANDLE = "mvrhaa"
-ABOUT = ("Computer Science student", "at PJATK, Warsaw")
+ABOUT = ("Security and DevOps", "CS student at PJATK, Warsaw")
 LINKS = (
     ("linkedin", "https://www.linkedin.com/in/ruslan-murha-08309638a"),
     ("telegram @mvrhaa", "https://t.me/mvrhaa"),
@@ -299,7 +300,7 @@ def narrow(repos: list[dict]) -> str:
 
     c.text(P, P + 22, NAME, 24, INK, "semibold")
     y = P + 50
-    for line in wrap(" ".join(ABOUT), "regular", 15, W - 2 * P, 2):
+    for line in wrap(" · ".join(ABOUT), "regular", 15, W - 2 * P, 2):
         c.text(P, y, line, 15, BODY)
         y += 20
     x, y = P, y + 16
@@ -334,18 +335,23 @@ def narrow(repos: list[dict]) -> str:
 
 def alt_text(repos: list[dict]) -> str:
     shown = "; ".join(f"{r['name']} ({r['lang']}, {r['date']})" for r in repos[:ROWS_WIDE])
-    return (f"{NAME} ({HANDLE}), {' '.join(ABOUT)}. Branch graph of public repositories, "
+    return (f"{NAME} ({HANDLE}), {', '.join(ABOUT)}. Branch graph of public repositories, "
             f"one branch per language, newest first: {shown}.")
 
 
-def readme(repos: list[dict]) -> str:
+def image_url(file: str, svg: str) -> str:
+    version = hashlib.sha256(svg.encode("utf-8")).hexdigest()[:10]
+    return f"https://raw.githubusercontent.com/{HANDLE}/{HANDLE}/main/assets/{file}?v={version}"
+
+
+def readme(repos: list[dict], urls: dict[str, str]) -> str:
     sep = "&nbsp;&nbsp;\n  "
     projects = sep.join(f'<a href="{r["url"]}"><code>{html.escape(r["name"])}</code></a>' for r in repos)
     contacts = sep.join(f'<a href="{url}"><code>{html.escape(label)}</code></a>' for label, url in LINKS)
     bio = BIO.read_text(encoding="utf-8").strip() + "\n\n" if BIO.exists() else ""
     return f"""<picture>
-  <source media="(max-width: 700px)" srcset="./assets/graph-mobile.svg">
-  <img src="./assets/graph.svg" width="100%" alt="{html.escape(alt_text(repos))}">
+  <source media="(max-width: 700px)" srcset="{urls['graph-mobile.svg']}">
+  <img src="{urls['graph.svg']}" width="100%" alt="{html.escape(alt_text(repos))}">
 </picture>
 
 {bio}<p>
@@ -363,9 +369,11 @@ def readme(repos: list[dict]) -> str:
 if __name__ == "__main__":
     repos = fetch_repos()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    urls = {}
     for file, build in (("graph.svg", wide), ("graph-mobile.svg", narrow)):
         svg = build(repos)
         (OUT_DIR / file).write_text(svg, encoding="utf-8")
+        urls[file] = image_url(file, svg)
         print(f"{file}: {len(svg.encode()) / 1024:.0f} KB")
-    README.write_text(readme(repos), encoding="utf-8")
+    README.write_text(readme(repos, urls), encoding="utf-8")
     print(f"README.md: {len(repos)} public repositories")
