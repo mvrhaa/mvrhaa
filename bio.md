@@ -1,14 +1,18 @@
-I'm Ruslan, a second-year Computer Science student at PJATK in Warsaw, heading into security engineering and DevOps. I like tools that watch a system, map what is exposed and raise an alert when something looks wrong.
+I'm Ruslan, a second-year Computer Science student at the Polish-Japanese Academy of Information Technology (PJATK) in Warsaw. My focus is DevSecOps: security, DevOps and the cloud they run on.
 
-**What I've built so far**
+I'm most interested in web security and computer networks. In my networking classes I write TCP and UDP programs in Java and use Wireshark to see what really goes over the wire. On the cloud side I work with AWS (IAM, security groups, VPC), package my projects with Docker and run them through GitHub Actions pipelines. I'm looking for a security or DevOps internship where I can learn from real cases and grow on the defensive side.
 
-- **osint-recon** ([web-crawler](https://github.com/mvrhaa/web-crawler)): an async reconnaissance crawler that maps a site's pages, emails, subdomains and tech stack. A scope guard checks every request and every redirect hop, robots.txt is respected, and on its own test range it finds all 43 planted artifacts.
-- **log-watcher**: a CLI that parses nginx access logs and SSH auth logs, counts failed logins per IP and exits with code 1 once an IP crosses the threshold, so a cron job or a CI pipeline can raise the alarm. Runs in Docker, tested in GitHub Actions.
-- **[minibank](https://github.com/mvrhaa/minibank)**: a banking REST API on Spring Boot with Spring Security and PostgreSQL, started with Docker Compose.
-- **[brokenlinkchecker](https://github.com/mvrhaa/brokenlinkchecker)**: a multithreaded Java crawler that finds broken links.
+### Achievements
 
-**Tools:** Python, Java, Docker, GitHub Actions, PostgreSQL, Spring Security, Playwright.
+- **1st place, Quantum Optimization track, IBM Qiskit Fall Fest 2026.** I led a team of 5, built the QAOA solver and presented the demo to the jury.
+- **AWS Academy Graduate, Cloud Foundations** (2026, 20 hours). [Verify on Credly](https://www.credly.com/go/WZQGixyS)
+- **IBM SkillsBuild, Cybersecurity Fundamentals** (2026). [Verify on Credly](https://www.credly.com/badges/309205c8-b747-41ba-9841-b37fa36c0089)
 
-Outside security I build quant models ([curvelq](https://github.com/mvrhaa/curvelq)), and with my team I won the Quantum Optimization track at IBM Qiskit Fall Fest 2026.
+### What I work with
 
-The graph above is built from my public repositories and redraws itself when I publish a new one.
+- **Security:** OWASP Top 10, HTTP security headers, TLS certificates, password hashing and cryptography basics
+- **Networking:** TCP/IP, UDP, DNS, HTTP and HTTPS, sockets, Wireshark, nmap
+- **Cloud and DevOps:** AWS (IAM, security groups, VPC), Docker, GitHub Actions, Linux, Git
+- **Languages:** Python, Java, SQL, Bash
+
+I speak English (C1), Polish (B2), German (B1), Russian and Ukrainian (native).
