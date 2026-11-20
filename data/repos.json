@@ -18,9 +18,17 @@
  "colors": {
   "TypeScript": "#b083f0",
   "Java": "#f0883e",
-  "Python": "#6cb6ff"
+  "Python": "#6cb6ff",
+  "JavaScript": "#e3b341"
  },
  "repos": [
+  {
+   "name": "mvrhaa.github.io",
+   "url": "https://github.com/mvrhaa/mvrhaa.github.io",
+   "lang": "JavaScript",
+   "date": "2026-11-20",
+   "about": "Interactive branch graph of my GitHub repositories"
+  },
   {
    "name": "phantasm",
    "url": "https://github.com/mvrhaa/phantasm",
