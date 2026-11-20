@@ -30,7 +30,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config merge.rendered.driver "cp %B %A"
-          git add -A assets README.md
+          git add -A assets data README.md
           git diff --cached --quiet || git commit -m "refresh profile graph"
           git pull --rebase origin main
           git push

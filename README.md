@@ -1,55 +1,5 @@
-<picture>
-  <source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/graph-mobile.svg?v=afe2c05b8a">
-  <img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/graph.svg?v=9a902ef160" width="100%" alt="Ruslan Murha (mvrhaa), Security, DevOps and cloud, CS student at PJATK, Warsaw. Branch graph of public repositories, one branch per language: Python 5, Java 2, TypeScript 1.">
-</picture>
-
-<details>
-<summary>🔵 <b>Python</b> &nbsp;5 repositories</summary>
-<br>
-
-<picture>
-  <source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/branch-python-mobile.svg?v=fa47c85a82">
-  <img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/branch-python.svg?v=48b7fb6051" width="100%" alt="Python branch: phantasm (2026-11-11): Local agent runtime for a macOS AI companion: WebSocket API, tools with approvals, memory, background agents and scheduling.; curvelq (2026-11-10): Which method recovers the euro area yield curve best, and where does each one break?; log-watcher (2026-11-06): A small Python CLI that reads nginx access logs and SSH auth logs and reports: the most active IPs, how many 404 and 500 responses there were, failed SSH logins per IP, a WARNING line for every IP whose failed logins reach the threshold in config.yaml; web-crawler (2026-10-31): An OSINT reconnaissance crawler with a built-in test range and a natural-language query layer.; lod-qa/lodqa (2026-10-24): Team of 5, 1st place in the Quantum Optimization track at IBM Qiskit Fall Fest 2026. Picks the level of detail for every 3D object under a triangle budget as a QUBO, solved with QAOA in Qiskit.">
-</picture>
-
-<p>
-  <a href="https://github.com/mvrhaa/phantasm"><code>phantasm</code></a>&nbsp;&nbsp;
-  <a href="https://github.com/mvrhaa/curvelq"><code>curvelq</code></a>&nbsp;&nbsp;
-  <a href="https://github.com/mvrhaa/log-watcher"><code>log-watcher</code></a>&nbsp;&nbsp;
-  <a href="https://github.com/mvrhaa/web-crawler"><code>web-crawler</code></a>&nbsp;&nbsp;
-  <a href="https://github.com/lod-qa/lodqa"><code>lod-qa/lodqa</code></a>
-</p>
-
-</details>
-<details>
-<summary>🟠 <b>Java</b> &nbsp;2 repositories</summary>
-<br>
-
-<picture>
-  <source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/branch-java-mobile.svg?v=0979d0ff38">
-  <img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/branch-java.svg?v=bb6ab9c588" width="100%" alt="Java branch: minibank (2026-10-11): A banking REST API built with Java 17, Spring Boot, Spring Data JPA, Spring Security and PostgreSQL.; brokenlinkchecker (2026-10-11): A multithreaded web crawler that finds broken links, written in Java 17 with Maven.">
-</picture>
-
-<p>
-  <a href="https://github.com/mvrhaa/minibank"><code>minibank</code></a>&nbsp;&nbsp;
-  <a href="https://github.com/mvrhaa/brokenlinkchecker"><code>brokenlinkchecker</code></a>
-</p>
-
-</details>
-<details>
-<summary>🟣 <b>TypeScript</b> &nbsp;1 repository</summary>
-<br>
-
-<picture>
-  <source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/branch-typescript-mobile.svg?v=fd15cffbb0">
-  <img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/branch-typescript.svg?v=d7f4b99b1c" width="100%" alt="TypeScript branch: lainai (2026-06-26): This is a Next.js project bootstrapped with create-next-app.">
-</picture>
-
-<p>
-  <a href="https://github.com/mvrhaa/lainai"><code>lainai</code></a>
-</p>
-
-</details>
+<p><a href="https://mvrhaa.github.io/"><picture><source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/d-0.svg?v=3ca97f31ec" width="47.178%" alt="Ruslan Murha (mvrhaa), Security, DevOps and cloud, CS student at PJATK, Warsaw. Branch graph of public repositories, one branch per language: Python 5, Java 2, TypeScript 1. Each branch opens its repositories."></picture></a><a href="https://mvrhaa.github.io/#typescript"><picture><source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/d-1.svg?v=18721f40d7" width="2.722%" alt="TypeScript branch: open its repositories"></picture></a><a href="https://mvrhaa.github.io/#java"><picture><source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/d-2.svg?v=ada18d607d" width="2.722%" alt="Java branch: open its repositories"></picture></a><a href="https://mvrhaa.github.io/#python"><picture><source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/d-3.svg?v=b5f2d3818b" width="2.722%" alt="Python branch: open its repositories"></picture></a><a href="https://mvrhaa.github.io/"><picture><source media="(max-width: 700px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/d-4.svg?v=462f8def76" width="44.456%" alt=""></picture></a></p>
+<p><a href="https://mvrhaa.github.io/"><picture><source media="(min-width: 701px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/m-0.svg?v=de13b46b5e" width="43.549%" alt="Ruslan Murha (mvrhaa), Security, DevOps and cloud, CS student at PJATK, Warsaw. Branch graph of public repositories, one branch per language: Python 5, Java 2, TypeScript 1. Each branch opens its repositories."></picture></a><a href="https://mvrhaa.github.io/#typescript"><picture><source media="(min-width: 701px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/m-1.svg?v=bfadd8fea0" width="6.351%" alt="TypeScript branch: open its repositories"></picture></a><a href="https://mvrhaa.github.io/#java"><picture><source media="(min-width: 701px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/m-2.svg?v=c4e689db9e" width="6.351%" alt="Java branch: open its repositories"></picture></a><a href="https://mvrhaa.github.io/#python"><picture><source media="(min-width: 701px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/m-3.svg?v=44726877de" width="6.351%" alt="Python branch: open its repositories"></picture></a><a href="https://mvrhaa.github.io/"><picture><source media="(min-width: 701px)" srcset="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/blank.svg?v=f7ee0e10ee"><img src="https://raw.githubusercontent.com/mvrhaa/mvrhaa/main/assets/m-4.svg?v=7107416c9e" width="37.198%" alt=""></picture></a></p>
 
 I'm Ruslan, a second-year Computer Science student at the Polish-Japanese Academy of Information Technology (PJATK) in Warsaw. My focus is DevSecOps: security, DevOps and the cloud they run on.
 

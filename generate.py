@@ -23,18 +23,19 @@ LINKS = (
     ("linkedin", "https://www.linkedin.com/in/ruslan-murha-08309638a"),
     ("telegram @mvrhaa", "https://t.me/mvrhaa"),
 )
-NOTE = "Public repositories, updated automatically."
+NOTE = "Click a branch to see its repositories."
 SKIP = {HANDLE.lower()}
-EXTRA = ("lod-qa/lodqa",)
 DESCRIPTIONS = {
     "lod-qa/lodqa": "Team of 5, 1st place in the Quantum Optimization track at IBM Qiskit Fall Fest 2026. "
                     "Picks the level of detail for every 3D object under a triangle budget as a QUBO, solved with QAOA in Qiskit.",
 }
-ROWS_WIDE = 10
-ROWS_NARROW = 8
+ROWS = 10
+SITE = f"https://{HANDLE}.github.io/"
+HIDE = {"d": "(max-width: 700px)", "m": "(min-width: 701px)"}
 
 ROOT = pathlib.Path(__file__).resolve().parent
 OUT_DIR = ROOT / "assets"
+DATA = ROOT / "data" / "repos.json"
 README = ROOT / "README.md"
 BIO = ROOT / "bio.md"
 FONTS = ROOT / "fonts"
@@ -47,15 +48,10 @@ LANG_COLORS = {
 }
 SPARE = ("#56d364", "#ffa198", "#79c0ff", "#e2c541", "#bc8cff", "#ff9bce")
 OTHER = "#8b949e"
-DOTS = {
-    "#6cb6ff": "🔵", "#f0883e": "🟠", "#b083f0": "🟣", "#e3b341": "🟡", "#f47067": "🔴", "#39c5cf": "🔵",
-    "#dea584": "🟤", "#f778ba": "🔴", "#8ddb8c": "🟢", "#57ab5a": "🟢", "#d2a8ff": "🟣", "#a5d6ff": "🔵",
-    "#ff938a": "🔴", "#56d364": "🟢", "#ffa198": "🔴", "#79c0ff": "🔵", "#e2c541": "🟡", "#bc8cff": "🟣",
-    "#ff9bce": "🔴", OTHER: "⚪",
-}
 FACES = {"regular": ("Figtree-Regular.ttf", 400), "semibold": ("Figtree-SemiBold.ttf", 600)}
 FAMILY = "rm-figtree"
 STACK = f"{FAMILY},'Avenir Next','Segoe UI',Helvetica,Arial,sans-serif"
+BLANK = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1" viewBox="0 0 1000 1"/>'
 
 
 def api(path: str, raw: bool = False):
@@ -124,12 +120,29 @@ def entry(r: dict) -> dict:
                 date=r["created_at"][:10], about=about)
 
 
+def pinned() -> list[str]:
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise SystemExit("GITHUB_TOKEN is needed to read the pinned repositories")
+    query = ('{ user(login: "%s") { pinnedItems(first: 6, types: REPOSITORY) '
+             '{ nodes { ... on Repository { nameWithOwner isPrivate } } } } }' % HANDLE)
+    request = urllib.request.Request(
+        "https://api.github.com/graphql", data=json.dumps({"query": query}).encode("utf-8"),
+        headers={"Authorization": f"Bearer {token}", "User-Agent": "profile-readme-generator",
+                 "Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    if data.get("errors"):
+        raise SystemExit(f"GitHub GraphQL error: {data['errors']}")
+    return [n["nameWithOwner"] for n in data["data"]["user"]["pinnedItems"]["nodes"] if not n["isPrivate"]]
+
+
 def fetch_repos() -> list[dict]:
     items = [r for r in api(f"/users/{HANDLE}/repos?type=owner&per_page=100")
              if not (r["fork"] or r["archived"] or r["private"] or r["name"].lower() in SKIP)]
-    for full in EXTRA:
+    for full in pinned():
         r = api(f"/repos/{full}")
-        if not r["private"] and all(i["full_name"] != r["full_name"] for i in items):
+        if not r["private"] and r["name"].lower() not in SKIP and all(i["full_name"] != r["full_name"] for i in items):
             items.append(r)
     return sorted((entry(r) for r in items), key=lambda r: (r["date"], r["name"]), reverse=True)
 
@@ -158,15 +171,7 @@ def wrap(text: str, face: str, size: float, room: float, max_lines: int) -> list
             current = word
     if current:
         lines.append(current)
-    cut = len(lines) > max_lines
-    lines = lines[:max_lines]
-    return [fit(line, face, size, room, cut and i == len(lines) - 1) for i, line in enumerate(lines)]
-
-
-def fit(line: str, face: str, size: float, room: float, cut: bool) -> str:
-    while line and width(line + ("…" if cut else ""), face, size) > room:
-        line, cut = line[:-1].rstrip(), True
-    return line.rstrip(" ,.;:-") + "…" if cut else line
+    return lines[:max_lines]
 
 
 def font_face(face: str, chars: set[str]) -> str:
@@ -193,6 +198,7 @@ class Canvas:
     def __init__(self) -> None:
         self.parts: list[str] = []
         self.used: dict[str, set[str]] = {face: set() for face in FACES}
+        self.css: str | None = None
 
     def add(self, part: str) -> None:
         self.parts.append(part)
@@ -205,11 +211,13 @@ class Canvas:
             f'<text x="{num(x)}" y="{num(y)}" font-size="{num(size)}" font-weight="{FACES[face][1]}" '
             f'fill="{fill}" text-anchor="{anchor}"{style}>{html.escape(s, quote=False)}</text>')
 
-    def render(self, w: float, h: float) -> str:
-        css = "".join(font_face(face, chars) for face, chars in self.used.items() if chars)
-        return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{num(w)}" height="{num(h)}" '
-                f'viewBox="0 0 {num(w)} {num(h)}" font-family="{STACK}">'
-                f'<style>{css}</style>'
+    def render(self, w: float, h: float, x0: float = 0.0, x1: float | None = None) -> str:
+        if self.css is None:
+            self.css = "".join(font_face(face, chars) for face, chars in self.used.items() if chars)
+        x1 = w if x1 is None else x1
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{num(x1 - x0)}" height="{num(h)}" '
+                f'viewBox="{num(x0)} 0 {num(x1 - x0)} {num(h)}" font-family="{STACK}">'
+                f'<style>{self.css}</style>'
                 f'<rect x=".5" y=".5" width="{num(w - 1)}" height="{num(h - 1)}" rx="10" '
                 f'fill="{BG}" stroke="{EDGE}"/>' + "".join(self.parts) + "</svg>")
 
@@ -236,21 +244,17 @@ def legend(repos: list[dict], rows: list[dict]) -> list[tuple[str, int]]:
 def lanes(rows: list[dict]) -> list[str]:
     order: list[str] = []
     for r in reversed(rows):
-        if r["lang"] not in order:
+        if r["lang"] and r["lang"] not in order:
             order.append(r["lang"])
     return order
 
 
 def earlier(rest: list[dict]) -> dict:
-    first, last = rest[-1]["date"][:7], rest[0]["date"][:7]
-    span = first if first == last else f"{first} – {last}"
-    noun = "repository" if len(rest) == 1 else "repositories"
-    return dict(name=f"{len(rest)} earlier {noun}", date="", lang=None,
-                about=f"{span}: " + ", ".join(r["name"] for r in rest))
+    return dict(name=f"{len(rest)} earlier", date="", lang=None, about="")
 
 
-def capped(repos: list[dict], limit: int) -> list[dict]:
-    return repos[:limit] + ([earlier(repos[limit:])] if len(repos) > limit else [])
+def capped(repos: list[dict]) -> list[dict]:
+    return repos[:ROWS] + ([earlier(repos[ROWS:])] if len(repos) > ROWS else [])
 
 
 def row_height(lines: list[str]) -> float:
@@ -271,7 +275,7 @@ def place(blocks: list[list[str]], start: float, fill_to: float) -> tuple[list[f
 
 
 def branches(c: Canvas, rows: list[dict], ys: list[float], colors: dict[str, str], order: list[str],
-             trunk_x: float, step: float, top: float, bottom: float) -> None:
+             trunk_x: float, step: float, top: float, bottom: float) -> dict[str, float]:
     xs = {lang: trunk_x + step * (i + 1) for i, lang in enumerate(order)}
     if ys:
         bottom = max(bottom, ys[-1] + 40)
@@ -292,123 +296,94 @@ def branches(c: Canvas, rows: list[dict], ys: list[float], colors: dict[str, str
     for r, y in zip(rows, ys):
         x, fill = (xs[r["lang"]], colors[r["lang"]]) if r["lang"] else (trunk_x, TRUNK)
         c.add(f'<circle cx="{num(x)}" cy="{num(y)}" r="5.5" fill="{fill}" stroke="{BG}" stroke-width="3"/>')
+    return xs
 
 
-def repo_count(repos: list[dict], lang: str) -> str:
-    n = sum(1 for r in repos if r["lang"] == lang)
-    return f"{n} public {'repository' if n == 1 else 'repositories'}"
-
-
-def wide(repos: list[dict], focus: str | None = None) -> str:
+def wide(repos: list[dict]):
     W, P = 880, 32
     c = Canvas()
     colors = colors_for(repos)
-    rows = capped(repos, ROWS_WIDE)
-    order = lanes([r for r in rows if r["lang"]])
-    trunk_x = 292
+    rows = capped(repos)
+    order = lanes(rows)
     step = min(24.0, 168 / max(len(order), 1))
-    date_x = trunk_x + step * len(order) + 40
-    name_x = date_x + width("0000-00-00", "regular", 12) + 28
-    room = W - P - name_x
+    room = W - P - (292 + step * len(order) + 40 + width("0000-00-00", "regular", 12) + 28)
+    blocks = [wrap(r["about"], "regular", 13, room, 2) for r in rows]
+    trunk_x = round(W / 2 - step * len(order) / 2, 1)
 
-    if focus:
-        rows = capped([r for r in repos if r["lang"] == focus], ROWS_WIDE)
-        blocks = [wrap(r["about"], "regular", 13, room, 2) for r in rows]
-        c.text(P, P + 26, focus, 28, colors[focus], "semibold")
-        c.text(P, P + 56, repo_count(repos, focus), 15, BODY)
-        left_bottom = P + 56
-    else:
-        blocks = [[""] for _ in rows]
-        c.text(P, P + 26, NAME, 28, INK, "semibold")
-        for i, line in enumerate(ABOUT):
-            c.text(P, P + 56 + 21 * i, line, 15, BODY)
-        ly = P + 128
-        for lang, n in legend(repos, rows):
-            c.add(f'<circle cx="{P + 6}" cy="{ly - 5}" r="5" fill="{colors[lang]}"/>')
-            c.text(P + 22, ly, lang, 14, INK)
-            c.text(P + 228, ly, str(n), 13, DIM, anchor="end", tnum=True)
-            ly += 28
-        left_bottom = ly + 22
+    c.text(P, P + 26, NAME, 28, INK, "semibold")
+    for i, line in enumerate(ABOUT):
+        c.text(P, P + 56 + 21 * i, line, 15, BODY)
+    ly = P + 128
+    for lang, n in legend(repos, rows):
+        c.add(f'<circle cx="{P + 6}" cy="{ly - 5}" r="5" fill="{colors[lang]}"/>')
+        c.text(P + 22, ly, lang, 14, INK)
+        c.text(P + 228, ly, str(n), 13, DIM, anchor="end", tnum=True)
+        ly += 28
+    left_bottom = ly + 22
 
     ys, bottom = place(blocks, P + 12, left_bottom - 14)
     H = max(left_bottom, bottom) + P
-    if not focus:
-        c.text(P, H - P, NOTE, 12, DIM)
-    branches(c, rows, ys, colors, order, trunk_x, step, P - 14, H - 14)
-    if focus:
-        for r, y, lines in zip(rows, ys, blocks):
-            if r["date"]:
-                c.text(date_x, y + 4, r["date"], 12, DIM, tnum=True)
-            c.text(name_x, y + 5, r["name"], 15, INK if r["lang"] else BODY, "semibold")
-            for k, line in enumerate(lines):
-                c.text(name_x, y + 24 + 18 * k, line, 13, BODY)
-    return c.render(W, H)
+    c.text(P, H - P, NOTE, 12, DIM)
+    xs = branches(c, rows, ys, colors, order, trunk_x, step, P - 14, H - 14)
+    return c, W, H, [xs[lang] for lang in order], step, order
 
 
-def narrow(repos: list[dict], focus: str | None = None) -> str:
+def narrow(repos: list[dict]):
     W, P = 440, 22
     c = Canvas()
     colors = colors_for(repos)
-    rows = capped(repos, ROWS_NARROW)
-    order = lanes([r for r in rows if r["lang"]])
-    trunk_x = P + 6
-    step = min(16.0, 112 / max(len(order), 1))
-    text_x = trunk_x + step * len(order) + 22
-    room = W - P - text_x
+    rows = capped(repos)
+    order = lanes(rows)
+    step = min(28.0, 140 / max(len(order), 1))
+    room = W - P - (P + 6 + step * len(order) + 22)
+    blocks = [wrap(r["about"], "regular", 13, room, 3) for r in rows]
+    trunk_x = round(W / 2 - step * len(order) / 2, 1)
 
-    if focus:
-        rows = capped([r for r in repos if r["lang"] == focus], ROWS_NARROW)
-        blocks = [wrap(r["about"], "regular", 13, room, 3) for r in rows]
-        c.text(P, P + 22, focus, 24, colors[focus], "semibold")
-        y = P + 48
-        c.text(P, y, repo_count(repos, focus), 15, BODY)
-    else:
-        blocks = [[""] for _ in rows]
-        c.text(P, P + 22, NAME, 24, INK, "semibold")
-        y = P + 50
-        for about in ABOUT:
-            for line in wrap(about, "regular", 15, W - 2 * P, 2):
-                c.text(P, y, line, 15, BODY)
-                y += 20
-        x, y = P, y + 16
-        for lang, n in legend(repos, rows):
-            item = 14 + width(lang, "regular", 13) + 6 + width(str(n), "regular", 13)
-            if x > P and x + item > W - P:
-                x, y = P, y + 22
-            c.add(f'<circle cx="{num(x + 4.5)}" cy="{num(y - 4.5)}" r="4.5" fill="{colors[lang]}"/>')
-            c.text(x + 14, y, lang, 13, INK)
-            c.text(x + 14 + width(lang, "regular", 13) + 6, y, str(n), 13, DIM, tnum=True)
-            x += item + 18
+    c.text(P, P + 22, NAME, 24, INK, "semibold")
+    y = P + 50
+    for about in ABOUT:
+        for line in wrap(about, "regular", 15, W - 2 * P, 2):
+            c.text(P, y, line, 15, BODY)
+            y += 20
+    x, y = P, y + 16
+    for lang, n in legend(repos, rows):
+        item = 14 + width(lang, "regular", 13) + 6 + width(str(n), "regular", 13)
+        if x > P and x + item > W - P:
+            x, y = P, y + 22
+        c.add(f'<circle cx="{num(x + 4.5)}" cy="{num(y - 4.5)}" r="4.5" fill="{colors[lang]}"/>')
+        c.text(x + 14, y, lang, 13, INK)
+        c.text(x + 14 + width(lang, "regular", 13) + 6, y, str(n), 13, DIM, tnum=True)
+        x += item + 18
 
     top = y + 22
     ys, bottom = place(blocks, top + 18, 0)
-    if focus:
-        H = bottom + 24 + P
-        branches(c, rows, ys, colors, order, trunk_x, step, top, H - 14)
-    else:
-        H = bottom + 40 + P
-        c.text(P, H - P, NOTE, 12, DIM)
-        branches(c, rows, ys, colors, order, trunk_x, step, top, H - 46)
-    if focus:
-        for r, y, lines in zip(rows, ys, blocks):
-            c.text(text_x, y + 5, r["name"], 15, INK if r["lang"] else BODY, "semibold")
-            if r["date"] and width(r["name"], "semibold", 15) + width(r["date"], "regular", 12) + 12 <= room:
-                c.text(W - P, y + 5, r["date"], 12, DIM, anchor="end", tnum=True)
-            for k, line in enumerate(lines):
-                c.text(text_x, y + 24 + 18 * k, line, 13, BODY)
-    return c.render(W, H)
+    H = bottom + 40 + P
+    c.text(P, H - P, NOTE, 12, DIM)
+    xs = branches(c, rows, ys, colors, order, trunk_x, step, top, H - 46)
+    return c, W, H, [xs[lang] for lang in order], step, order
+
+
+def strips(c: Canvas, W: float, H: float, xs: list[float], step: float) -> list[tuple[str, float]]:
+    cuts = [round(x - step / 2, 1) for x in xs] + ([round(xs[-1] + step / 2, 1)] if xs else [])
+    bounds = [0.0] + cuts + [float(W)]
+    return [(c.render(W, H, x0, x1), (x1 - x0) / W * 99.8) for x0, x1 in zip(bounds, bounds[1:])]
 
 
 def slug(lang: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", lang.lower().replace("+", "p").replace("#", "sharp")).strip("-")
 
 
-def images(repos: list[dict]) -> dict[str, str]:
-    files = {"graph.svg": wide(repos), "graph-mobile.svg": narrow(repos)}
-    for lang, _ in counts(repos):
-        files[f"branch-{slug(lang)}.svg"] = wide(repos, lang)
-        files[f"branch-{slug(lang)}-mobile.svg"] = narrow(repos, lang)
-    return files
+def build(repos: list[dict]):
+    files = {"blank.svg": BLANK}
+    cuts: dict[str, list[tuple[str, float]]] = {}
+    order: list[str] = []
+    for kind, draw in (("d", wide), ("m", narrow)):
+        c, W, H, xs, step, order = draw(repos)
+        cuts[kind] = []
+        for i, (svg, pct) in enumerate(strips(c, W, H, xs, step)):
+            files[f"{kind}-{i}.svg"] = svg
+            cuts[kind].append((f"{kind}-{i}.svg", pct))
+    return order, files, cuts
 
 
 def image_url(file: str, svg: str) -> str:
@@ -416,39 +391,32 @@ def image_url(file: str, svg: str) -> str:
     return f"https://raw.githubusercontent.com/{HANDLE}/{HANDLE}/main/assets/{file}?v={version}"
 
 
-def picture(urls: dict[str, str], name: str, alt: str) -> str:
-    return (f'<picture>\n  <source media="(max-width: 700px)" srcset="{urls[name + "-mobile.svg"]}">\n'
-            f'  <img src="{urls[name + ".svg"]}" width="100%" alt="{html.escape(alt)}">\n</picture>')
-
-
 def alt_text(repos: list[dict]) -> str:
     stack = ", ".join(f"{lang} {n}" for lang, n in counts(repos))
-    return (f"{NAME} ({HANDLE}), {', '.join(ABOUT)}. "
-            f"Branch graph of public repositories, one branch per language: {stack}.")
+    return (f"{NAME} ({HANDLE}), {', '.join(ABOUT)}. Branch graph of public repositories, "
+            f"one branch per language: {stack}. Each branch opens its repositories.")
 
 
-def branch_sections(repos: list[dict], urls: dict[str, str]) -> str:
-    colors = colors_for(repos)
-    sections = []
-    for lang, n in counts(repos):
-        items = [r for r in repos if r["lang"] == lang]
-        alt = f"{lang} branch: " + "; ".join(f"{r['name']} ({r['date']}): {r['about']}" for r in items)
-        links = "&nbsp;&nbsp;\n  ".join(f'<a href="{r["url"]}"><code>{html.escape(r["name"])}</code></a>'
-                                        for r in items)
-        noun = "repository" if n == 1 else "repositories"
-        sections.append(
-            f"<details>\n<summary>{DOTS.get(colors[lang], '⚪')} <b>{html.escape(lang)}</b> &nbsp;{n} {noun}"
-            f"</summary>\n<br>\n\n{picture(urls, f'branch-{slug(lang)}', alt)}\n\n<p>\n  {links}\n</p>\n\n</details>")
-    return "\n".join(sections)
+def targets(repos: list[dict], order: list[str]) -> list[tuple[str, str]]:
+    lanes_ = [(f"{SITE}#{slug(lang)}", f"{lang} branch: open its repositories") for lang in order]
+    return [(SITE, alt_text(repos))] + lanes_ + ([(SITE, "")] if order else [])
 
 
-def readme(repos: list[dict], urls: dict[str, str]) -> str:
+def strip_row(kind: str, cuts, urls: dict[str, str], links: list[tuple[str, str]]) -> str:
+    parts = []
+    for (name, pct), (link, alt) in zip(cuts[kind], links):
+        parts.append(f'<a href="{link}"><picture><source media="{HIDE[kind]}" srcset="{urls["blank.svg"]}">'
+                     f'<img src="{urls[name]}" width="{pct:.3f}%" alt="{html.escape(alt)}"></picture></a>')
+    return "<p>" + "".join(parts) + "</p>"
+
+
+def readme(repos: list[dict], order, cuts, urls: dict[str, str]) -> str:
+    links = targets(repos, order)
     contacts = "&nbsp;&nbsp;\n  ".join(f'<a href="{url}"><code>{html.escape(label)}</code></a>'
                                        for label, url in LINKS)
     bio = BIO.read_text(encoding="utf-8").strip() + "\n\n" if BIO.exists() else ""
-    return f"""{picture(urls, "graph", alt_text(repos))}
-
-{branch_sections(repos, urls)}
+    return f"""{strip_row("d", cuts, urls, links)}
+{strip_row("m", cuts, urls, links)}
 
 {bio}<p>
   <code>~/links</code>&nbsp;&nbsp;
@@ -457,17 +425,28 @@ def readme(repos: list[dict], urls: dict[str, str]) -> str:
 """
 
 
+def site_data(repos: list[dict]) -> str:
+    data = dict(name=NAME, handle=HANDLE, about=list(ABOUT),
+                links=[dict(label=label, url=url) for label, url in LINKS],
+                colors=colors_for(repos),
+                repos=[dict(name=r["name"], url=r["url"], lang=r["lang"], date=r["date"], about=r["about"])
+                       for r in repos])
+    return json.dumps(data, ensure_ascii=False, indent=1) + "\n"
+
+
 if __name__ == "__main__":
     repos = fetch_repos()
+    order, files, cuts = build(repos)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    files = images(repos)
-    for old in OUT_DIR.glob("branch-*.svg"):
+    for old in OUT_DIR.glob("*.svg"):
         if old.name not in files:
             old.unlink()
     urls = {}
-    for file, svg in files.items():
-        (OUT_DIR / file).write_text(svg, encoding="utf-8")
-        urls[file] = image_url(file, svg)
-        print(f"{file}: {len(svg.encode()) / 1024:.0f} KB")
-    README.write_text(readme(repos, urls), encoding="utf-8")
-    print(f"README.md: {len(repos)} repositories")
+    for name, svg in files.items():
+        (OUT_DIR / name).write_text(svg, encoding="utf-8")
+        urls[name] = image_url(name, svg)
+    DATA.parent.mkdir(parents=True, exist_ok=True)
+    DATA.write_text(site_data(repos), encoding="utf-8")
+    README.write_text(readme(repos, order, cuts, urls), encoding="utf-8")
+    size = sum(len(s.encode()) for s in files.values()) / 1024
+    print(f"assets: {len(files)} files, {size:.0f} KB; data: {len(repos)} repositories")

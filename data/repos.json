@@ -1,0 +1,81 @@
+{
+ "name": "Ruslan Murha",
+ "handle": "mvrhaa",
+ "about": [
+  "Security, DevOps and cloud",
+  "CS student at PJATK, Warsaw"
+ ],
+ "links": [
+  {
+   "label": "linkedin",
+   "url": "https://www.linkedin.com/in/ruslan-murha-08309638a"
+  },
+  {
+   "label": "telegram @mvrhaa",
+   "url": "https://t.me/mvrhaa"
+  }
+ ],
+ "colors": {
+  "TypeScript": "#b083f0",
+  "Java": "#f0883e",
+  "Python": "#6cb6ff"
+ },
+ "repos": [
+  {
+   "name": "phantasm",
+   "url": "https://github.com/mvrhaa/phantasm",
+   "lang": "Python",
+   "date": "2026-11-11",
+   "about": "Local agent runtime for a macOS AI companion: WebSocket API, tools with approvals, memory, background agents and scheduling."
+  },
+  {
+   "name": "curvelq",
+   "url": "https://github.com/mvrhaa/curvelq",
+   "lang": "Python",
+   "date": "2026-11-10",
+   "about": "Which method recovers the euro area yield curve best, and where does each one break?"
+  },
+  {
+   "name": "log-watcher",
+   "url": "https://github.com/mvrhaa/log-watcher",
+   "lang": "Python",
+   "date": "2026-11-06",
+   "about": "A small Python CLI that reads nginx access logs and SSH auth logs and reports: the most active IPs, how many 404 and 500 responses there were, failed SSH logins per IP, a WARNING line for every IP whose failed logins reach the threshold in config.yaml"
+  },
+  {
+   "name": "web-crawler",
+   "url": "https://github.com/mvrhaa/web-crawler",
+   "lang": "Python",
+   "date": "2026-10-31",
+   "about": "An OSINT reconnaissance crawler with a built-in test range and a natural-language query layer."
+  },
+  {
+   "name": "lod-qa/lodqa",
+   "url": "https://github.com/lod-qa/lodqa",
+   "lang": "Python",
+   "date": "2026-10-24",
+   "about": "Team of 5, 1st place in the Quantum Optimization track at IBM Qiskit Fall Fest 2026. Picks the level of detail for every 3D object under a triangle budget as a QUBO, solved with QAOA in Qiskit."
+  },
+  {
+   "name": "minibank",
+   "url": "https://github.com/mvrhaa/minibank",
+   "lang": "Java",
+   "date": "2026-10-11",
+   "about": "A banking REST API built with Java 17, Spring Boot, Spring Data JPA, Spring Security and PostgreSQL."
+  },
+  {
+   "name": "brokenlinkchecker",
+   "url": "https://github.com/mvrhaa/brokenlinkchecker",
+   "lang": "Java",
+   "date": "2026-10-11",
+   "about": "A multithreaded web crawler that finds broken links, written in Java 17 with Maven."
+  },
+  {
+   "name": "lainai",
+   "url": "https://github.com/mvrhaa/lainai",
+   "lang": "TypeScript",
+   "date": "2026-06-26",
+   "about": "This is a Next.js project bootstrapped with create-next-app."
+  }
+ ]
+}
