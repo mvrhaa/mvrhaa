@@ -3,10 +3,10 @@ name: refresh profile graph
 on:
   workflow_dispatch:
   schedule:
-    - cron: "23 5 * * *"
+    - cron: "*/15 * * * *"
   push:
     branches: [main]
-    paths: [generate.py, "fonts/**", .github/workflows/graph.yml]
+    paths: [generate.py, bio.md, "fonts/**", .github/workflows/graph.yml]
 
 permissions:
   contents: write

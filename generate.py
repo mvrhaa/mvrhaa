@@ -22,7 +22,7 @@ LINKS = (
     ("linkedin", "https://www.linkedin.com/in/ruslan-murha-08309638a"),
     ("telegram @mvrhaa", "https://t.me/mvrhaa"),
 )
-NOTE = "Public repositories, redrawn every day."
+NOTE = "Public repositories, updated automatically."
 SKIP = {HANDLE.lower()}
 ROWS_WIDE = 10
 ROWS_NARROW = 8
@@ -30,6 +30,7 @@ ROWS_NARROW = 8
 ROOT = pathlib.Path(__file__).resolve().parent
 OUT_DIR = ROOT / "assets"
 README = ROOT / "README.md"
+BIO = ROOT / "bio.md"
 FONTS = ROOT / "fonts"
 
 BG, EDGE, INK, BODY, DIM, TRUNK = "#0d1117", "#30363d", "#e6edf3", "#9198a1", "#6e7681", "#3d444d"
@@ -341,12 +342,13 @@ def readme(repos: list[dict]) -> str:
     sep = "&nbsp;&nbsp;\n  "
     projects = sep.join(f'<a href="{r["url"]}"><code>{html.escape(r["name"])}</code></a>' for r in repos)
     contacts = sep.join(f'<a href="{url}"><code>{html.escape(label)}</code></a>' for label, url in LINKS)
+    bio = BIO.read_text(encoding="utf-8").strip() + "\n\n" if BIO.exists() else ""
     return f"""<picture>
   <source media="(max-width: 700px)" srcset="./assets/graph-mobile.svg">
   <img src="./assets/graph.svg" width="100%" alt="{html.escape(alt_text(repos))}">
 </picture>
 
-<p>
+{bio}<p>
   <code>~/repos</code>&nbsp;&nbsp;
   {projects}
 </p>
